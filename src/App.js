@@ -1,34 +1,33 @@
-import React, { useState, useEffect, useMemo } from 'react';
-// Daha fazla ikon ekledik
+import React, { useState, useEffect } from 'react';
 import { 
   Calculator, BookOpen, FlaskConical, Leaf, Users, CheckCircle2, 
   Download, LogOut, User, Calendar, Home, Star, MessageSquare, 
   ChevronUp, ChevronDown, X, Share, MoreVertical, Phone, AlertTriangle, 
   RefreshCcw, LockKeyhole, GraduationCap, Lightbulb, Trophy, Flame, 
-  Target, Zap, Search, Award
+  Target, Zap, Search, Award, Loader2
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
-// --- 1. FIREBASE AYARLARI (KENDİ BİLGİLERİNİZLE DOLDURUN) ---
+// --- 1. FIREBASE AYARLARI (Sizin Verdiğiniz Bilgiler) ---
 const firebaseConfig = {
   apiKey: "AIzaSyAeyolB3EGrsOiNwdS971zF8DqCZ4ZPlAQ",
   authDomain: "kamp-takip-sistemi.firebaseapp.com",
   projectId: "kamp-takip-sistemi",
   storageBucket: "kamp-takip-sistemi.firebasestorage.app",
   messagingSenderId: "339295588440",
-  appId: "1:339295588440:web:6ca22ddc445fbd3dafba2d"
+  appId: "1:339295588440:web:3400318781869a00afba2d"
 };
 
 // --- AYARLAR ---
-const APP_ID = "kamp-takip-final-v5"; 
+const APP_ID = "kamp-takip-final-v8"; // Temiz başlangıç için versiyon 8
 const TEACHER_PASS = "1876"; 
 const TOTAL_DAYS = 15;
 const DAYS_ARRAY = Array.from({ length: TOTAL_DAYS }, (_, i) => i + 1);
 
-// Akıllı Tavsiye Havuzu (AI Yok, Mantık Var)
+// Akıllı Tavsiye Havuzu
 const ADVICE_POOL = {
   math: ["Matematik işlemlerini zihinden değil, kağıda yazarak yapmayı dene. ✍️", "Takıldığın sorularda önce çözümlü örneklere bak. 🧮"],
   turkish: ["Paragraf sorularında önce koyu renkli soru kökünü oku. 👁️", "Kitap okuma saatini 10 dakika artırmaya ne dersin? 📚"],
@@ -59,6 +58,7 @@ const FIELD_METADATA = {
   fenTekrar: { label: "30 dk Fen Tekrarı", type: "checkbox", color: "teal" }
 };
 
+// Firebase Başlatma
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -81,10 +81,19 @@ export default function App() {
 
   useEffect(() => {
     const initAuth = async () => {
-      if (!auth.currentUser) await signInAnonymously(auth);
+      if (!auth.currentUser) {
+         try {
+            await signInAnonymously(auth);
+         } catch(e) {
+            console.error("Auth error", e);
+         }
+      }
     };
     initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (u) => { setUser(u); setLoading(false); });
+    const unsubscribe = onAuthStateChanged(auth, (u) => { 
+        setUser(u); 
+        setLoading(false); 
+    });
     return () => unsubscribe();
   }, []);
 
@@ -94,7 +103,12 @@ export default function App() {
     setStudentGrade('');
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 font-medium">Sistem Yükleniyor...</div>;
+  if (loading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-500 font-medium">
+      <Loader2 className="w-10 h-10 animate-spin text-indigo-600 mb-4" />
+      Sistem Yükleniyor...
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex justify-center">
@@ -179,33 +193,61 @@ function StudentApp({ user, studentName, grade }) {
   const [activeTab, setActiveTab] = useState('home');
   const [data, setData] = useState(null); 
   const [selectedDay, setSelectedDay] = useState(null);
+  
   const docId = generateStudentId(studentName, grade);
   const myCurriculum = CURRICULUM[grade] || CURRICULUM[7];
 
   useEffect(() => {
     if (!user) return;
+    
+    // ZAMAN AŞIMI KORUMASI: 5 saniye içinde veri gelmezse, bekleme, boş veriyle aç.
+    const timeout = setTimeout(() => {
+        if (!data) {
+            console.log("Zaman aşımı, yerel veriyle açılıyor.");
+            setData({ name: studentName, grade: grade, days: {} });
+        }
+    }, 5000);
+
     const docRef = doc(db, 'artifacts', APP_ID, 'public_data', docId);
     
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      clearTimeout(timeout); 
       if (docSnap.exists()) {
         setData(docSnap.data());
       } else {
-        const initialData = { name: studentName, grade: grade, createdAt: serverTimestamp(), days: {} };
-        setDoc(docRef, initialData, { merge: true });
-        setData(initialData); 
+        const newData = { name: studentName, grade: grade, createdAt: serverTimestamp(), days: {} };
+        setDoc(docRef, newData, { merge: true }).catch(e => console.error("Kayıt hatası:", e));
+        setData({ name: studentName, grade: grade, days: {} }); 
       }
+    }, (err) => { 
+        console.error("Firebase Hatası:", err);
+        clearTimeout(timeout);
+        setData({ name: studentName, grade: grade, days: {} }); 
     });
-    return () => unsubscribe();
+    
+    return () => {
+        unsubscribe();
+        clearTimeout(timeout);
+    };
   }, [user, docId, studentName, grade]);
 
   const saveDayData = async (day, dayData) => {
-    setData(prev => ({ ...prev, days: { ...prev.days, [day]: dayData } }));
+    setData(prev => ({
+        ...prev,
+        days: { ...prev.days, [day]: dayData }
+    }));
+    
     const docRef = doc(db, 'artifacts', APP_ID, 'public_data', docId);
     await setDoc(docRef, { days: { [day]: dayData }, lastUpdated: serverTimestamp() }, { merge: true });
     setSelectedDay(null);
   };
 
-  if (!data) return <div className="p-8 text-center text-slate-400">Veriler hazırlanıyor...</div>;
+  if (!data) return (
+    <div className="p-8 text-center flex flex-col items-center justify-center h-full text-slate-400">
+        <Loader2 className="w-8 h-8 animate-spin mb-2 text-indigo-500" />
+        Veriler Hazırlanıyor...
+    </div>
+  );
 
   return (
     <>
@@ -229,14 +271,13 @@ const NavButton = ({ icon: Icon, label, isActive, onClick }) => (
     </button>
 );
 
-// --- HOME VIEW (YENİLENMİŞ TASARIM) ---
+// --- HOME VIEW ---
 function HomeView({ data, grade, studentName }) {
     const completedCount = Object.keys(data.days || {}).length;
     const percentage = Math.round((completedCount / TOTAL_DAYS) * 100);
     const [advice, setAdvice] = useState("");
     const [greeting, setGreeting] = useState("");
 
-    // İstatistik Hesapla
     let totalQuestions = 0;
     Object.values(data.days || {}).forEach(day => {
         Object.keys(day).forEach(key => {
@@ -245,13 +286,11 @@ function HomeView({ data, grade, studentName }) {
     });
 
     useEffect(() => {
-        // Canlı Selamlama
         const hour = new Date().getHours();
         if (hour < 12) setGreeting("Günaydın");
         else if (hour < 18) setGreeting("Tünaydın");
         else setGreeting("İyi Akşamlar");
 
-        // Akıllı Tavsiye Motoru
         const days = Object.keys(data.days || {}).map(Number).sort((a,b)=>b-a);
         const lastDay = days.length > 0 ? data.days[days[0]] : null;
 
@@ -268,13 +307,11 @@ function HomeView({ data, grade, studentName }) {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            {/* Üst Bilgi Kartı */}
             <div className="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10"><Trophy className="w-32 h-32"/></div>
                 <div className="relative z-10">
                     <p className="text-indigo-100 text-sm font-medium mb-1">{greeting},</p>
                     <h2 className="text-3xl font-bold mb-4">{studentName.split(' ')[0]} 🚀</h2>
-                    
                     <div className="flex justify-between items-end">
                         <div>
                             <div className="text-4xl font-bold">{percentage}%</div>
@@ -288,7 +325,6 @@ function HomeView({ data, grade, studentName }) {
                 </div>
             </div>
 
-            {/* Hızlı İstatistikler */}
             <div className="grid grid-cols-2 gap-3">
                 <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center shadow-sm">
                     <div className="bg-orange-100 p-2 rounded-full mb-2"><Flame className="w-6 h-6 text-orange-600"/></div>
@@ -302,7 +338,6 @@ function HomeView({ data, grade, studentName }) {
                 </div>
             </div>
 
-            {/* Rozet Müzesi */}
             <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
                 <h3 className="font-bold text-slate-700 text-sm mb-4 flex items-center"><Award className="w-4 h-4 mr-2 text-yellow-500"/> Rozetlerin</h3>
                 <div className="flex justify-between px-2">
@@ -312,7 +347,6 @@ function HomeView({ data, grade, studentName }) {
                 </div>
             </div>
             
-            {/* Akıllı Koç */}
             <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex gap-3 items-start shadow-sm">
                 <Lightbulb className="w-6 h-6 text-emerald-600 flex-shrink-0 mt-1"/>
                 <div>
@@ -340,7 +374,7 @@ const Badge = ({ icon: Icon, label, active, color }) => (
     </div>
 );
 
-// --- ALT BİLEŞENLER (CALENDAR) ---
+// --- CALENDAR VIEW ---
 function CalendarView({ data, onDayClick }) {
     return (
         <div className="pb-16 animate-in slide-in-from-bottom-4 duration-500">
@@ -360,7 +394,7 @@ function CalendarView({ data, onDayClick }) {
     );
 }
 
-// --- ÖĞRETMEN UYGULAMASI (YENİLENMİŞ) ---
+// --- TEACHER APP ---
 function TeacherApp({ user }) {
     const [students, setStudents] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
@@ -376,8 +410,6 @@ function TeacherApp({ user }) {
     }, [user]);
 
     const filteredStudents = students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    // İstatistikler
     const totalStudents = students.length;
     const activeToday = students.filter(s => s.lastUpdated && new Date(s.lastUpdated.seconds * 1000).toDateString() === new Date().toDateString()).length;
 
@@ -386,29 +418,14 @@ function TeacherApp({ user }) {
             <div className="bg-slate-800 text-white p-6 rounded-2xl shadow-lg">
                 <h2 className="font-bold text-xl mb-1">Öğretmen Paneli</h2>
                 <div className="flex gap-4 mt-4 text-sm">
-                    <div>
-                        <span className="block text-2xl font-bold">{totalStudents}</span>
-                        <span className="text-slate-400 text-xs">Toplam Öğrenci</span>
-                    </div>
-                    <div>
-                        <span className="block text-2xl font-bold text-green-400">{activeToday}</span>
-                        <span className="text-slate-400 text-xs">Bugün Aktif</span>
-                    </div>
+                    <div><span className="block text-2xl font-bold">{totalStudents}</span><span className="text-slate-400 text-xs">Toplam Öğrenci</span></div>
+                    <div><span className="block text-2xl font-bold text-green-400">{activeToday}</span><span className="text-slate-400 text-xs">Bugün Aktif</span></div>
                 </div>
             </div>
-
-            {/* Arama */}
             <div className="relative">
                 <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
-                <input 
-                    type="text" 
-                    placeholder="Öğrenci ara..." 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-800 outline-none"
-                />
+                <input type="text" placeholder="Öğrenci ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-800 outline-none" />
             </div>
-
             {filteredStudents.map(std => <StudentDetailRow key={std.id} student={std} />)}
         </div>
     )
@@ -436,9 +453,7 @@ function StudentDetailRow({ student }) {
                         <h4 className="font-bold text-sm text-slate-800">{student.name}</h4>
                         <span className="text-xs font-bold text-slate-500">%{pct}</span>
                     </div>
-                    <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1">
-                        <div className={`h-1.5 rounded-full ${pct === 100 ? 'bg-green-500' : 'bg-indigo-500'}`} style={{ width: `${pct}%` }}></div>
-                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1"><div className={`h-1.5 rounded-full ${pct === 100 ? 'bg-green-500' : 'bg-indigo-500'}`} style={{ width: `${pct}%` }}></div></div>
                 </div>
             </div>
             {expanded ? <ChevronUp className="text-slate-400 w-5 h-5 ml-3"/> : <ChevronDown className="text-slate-400 w-5 h-5 ml-3"/>}
@@ -446,9 +461,7 @@ function StudentDetailRow({ student }) {
         {expanded && (
             <div className="bg-slate-50 p-4 border-t border-slate-100">
                 <p className="text-xs text-slate-500 mb-2 font-bold uppercase">Öğrenciye Not Gönder:</p>
-                <div className="flex gap-2 mb-2">
-                    <input className="flex-1 text-sm p-2 border rounded-lg outline-none focus:border-slate-400" placeholder="Örn: Harika gidiyorsun!" value={msg} onChange={e=>setMsg(e.target.value)} />
-                </div>
+                <div className="flex gap-2 mb-2"><input className="flex-1 text-sm p-2 border rounded-lg outline-none focus:border-slate-400" placeholder="Örn: Harika gidiyorsun!" value={msg} onChange={e=>setMsg(e.target.value)} /></div>
                 <button onClick={sendFeedback} className="w-full bg-slate-800 hover:bg-slate-700 text-white text-sm py-2 rounded-lg font-bold transition">Gönder</button>
             </div>
         )}
