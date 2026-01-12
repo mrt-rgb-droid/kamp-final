@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+// Daha fazla ikon ekledik
 import { 
   Calculator, BookOpen, FlaskConical, Leaf, Users, CheckCircle2, 
   Download, LogOut, User, Calendar, Home, Star, MessageSquare, 
   ChevronUp, ChevronDown, X, Share, MoreVertical, Phone, AlertTriangle, 
-  RefreshCcw, LockKeyhole, GraduationCap, Lightbulb 
+  RefreshCcw, LockKeyhole, GraduationCap, Lightbulb, Trophy, Flame, 
+  Target, Zap, Search, Award
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
-// --- FIREBASE AYARLARI ---
+// --- 1. FIREBASE AYARLARI (KENDİ BİLGİLERİNİZLE DOLDURUN) ---
 const firebaseConfig = {
   apiKey: "AIzaSyAeyolB3EGrsOiNwdS971zF8DqCZ4ZPlAQ",
   authDomain: "kamp-takip-sistemi.firebaseapp.com",
@@ -20,16 +22,21 @@ const firebaseConfig = {
   appId: "1:339295588440:web:6ca22ddc445fbd3dafba2d"
 };
 
-const APP_ID = "kamp-final-v1";
-const TEACHER_PASS = "1876";
+// --- AYARLAR ---
+const APP_ID = "kamp-takip-final-v5"; 
+const TEACHER_PASS = "1876"; 
 const TOTAL_DAYS = 15;
 const DAYS_ARRAY = Array.from({ length: TOTAL_DAYS }, (_, i) => i + 1);
 
+// Akıllı Tavsiye Havuzu (AI Yok, Mantık Var)
 const ADVICE_POOL = {
-  math: ["İşlemleri kağıda yazarak yap. ✍️", "Önce örnek sorulara bak. 🧮"],
-  general: ["Harikasın! Devam et. 🚀", "Başarı yakında! ✨"]
+  math: ["Matematik işlemlerini zihinden değil, kağıda yazarak yapmayı dene. ✍️", "Takıldığın sorularda önce çözümlü örneklere bak. 🧮"],
+  turkish: ["Paragraf sorularında önce koyu renkli soru kökünü oku. 👁️", "Kitap okuma saatini 10 dakika artırmaya ne dersin? 📚"],
+  science: ["Fen konularını günlük hayattaki olaylarla ilişkilendir. 🧪", "Kavramları karıştırmamak için not tutarak çalış. 📝"],
+  general: ["Harika gidiyorsun! Mola vermeyi ve su içmeyi unutma. 💧", "Bugünkü çaban yarınki başarının anahtarıdır. 🗝️"]
 };
 
+// Müfredat
 const CURRICULUM = {
   1: { mat: 10, tr: 10, hayat: 10, kitap: true },
   2: { mat: 15, tr: 15, hayat: 10, kitap: true },
@@ -57,7 +64,10 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 const generateStudentId = (name, grade) => {
-  const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const cleanName = name.trim().toLowerCase()
+    .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
+    .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+    .replace(/[^a-z0-9]/g, '');
   return `std_${cleanName}_${grade}`;
 };
 
@@ -70,19 +80,26 @@ export default function App() {
   const [showInstallModal, setShowInstallModal] = useState(false);
 
   useEffect(() => {
-    const initAuth = async () => { if (!auth.currentUser) await signInAnonymously(auth); };
+    const initAuth = async () => {
+      if (!auth.currentUser) await signInAnonymously(auth);
+    };
     initAuth();
     const unsubscribe = onAuthStateChanged(auth, (u) => { setUser(u); setLoading(false); });
     return () => unsubscribe();
   }, []);
 
-  const handleLogout = () => { setRole(null); setStudentName(''); setStudentGrade(''); };
+  const handleLogout = () => {
+    setRole(null);
+    setStudentName('');
+    setStudentGrade('');
+  };
 
-  if (loading) return <div className="h-screen flex items-center justify-center">Yükleniyor...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 font-medium">Sistem Yükleniyor...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex justify-center">
       <div className="w-full max-w-md bg-white min-h-screen shadow-2xl relative flex flex-col">
+        {/* Header */}
         <header className="bg-indigo-600 text-white p-4 pt-8 sticky top-0 z-30 shadow-md">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
@@ -90,12 +107,26 @@ export default function App() {
               <div><h1 className="text-lg font-bold leading-none">Kamp Takip</h1><span className="text-[10px] opacity-80 uppercase tracking-wider">15 Günlük Program</span></div>
             </div>
             {!role && <button onClick={() => setShowInstallModal(true)} className="flex items-center text-xs bg-indigo-500 hover:bg-indigo-400 px-3 py-1.5 rounded-full transition"><Download className="w-3 h-3 mr-1" /> İndir</button>}
-            {role && <button onClick={handleLogout} className="p-1.5 bg-indigo-700 rounded hover:bg-red-500 transition"><LogOut className="w-4 h-4" /></button>}
+            {role && (
+                <div className="flex items-center space-x-2">
+                    <span className="text-xs bg-indigo-700 px-2 py-1 rounded border border-indigo-500">{role === 'student' ? studentName.split(' ')[0] : 'Öğretmen'}</span>
+                    <button onClick={handleLogout} className="p-1.5 bg-indigo-700 rounded hover:bg-red-500 transition"><LogOut className="w-4 h-4" /></button>
+                </div>
+            )}
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto pb-20">
-            {!user || !role ? <LoginScreen setRole={setRole} studentName={studentName} setStudentName={setStudentName} studentGrade={studentGrade} setStudentGrade={setStudentGrade} /> : role === 'student' ? <StudentApp user={user} studentName={studentName} grade={parseInt(studentGrade)} /> : <TeacherApp user={user} />}
+
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto pb-20 bg-slate-50">
+            {!user || !role ? (
+                <LoginScreen setRole={setRole} studentName={studentName} setStudentName={setStudentName} studentGrade={studentGrade} setStudentGrade={setStudentGrade} />
+            ) : role === 'student' ? (
+                <StudentApp user={user} studentName={studentName} grade={parseInt(studentGrade)} />
+            ) : (
+                <TeacherApp user={user} />
+            )}
         </main>
+
         {showInstallModal && <InstallGuideModal onClose={() => setShowInstallModal(false)} />}
       </div>
     </div>
@@ -109,7 +140,7 @@ function LoginScreen({ setRole, studentName, setStudentName, studentGrade, setSt
 
   const handleLogin = (r) => {
     if (r === 'student') {
-        if (!studentName.trim() || !studentGrade) return setError('Bilgileri girin.');
+        if (!studentName.trim() || !studentGrade) return setError('Lütfen bilgileri doldur.');
         setRole('student');
     } else {
         if (pass !== TEACHER_PASS) return setError('Hatalı şifre.');
@@ -118,25 +149,28 @@ function LoginScreen({ setRole, studentName, setStudentName, studentGrade, setSt
   };
 
   return (
-    <div className="p-6 flex flex-col h-full justify-center">
-        <div className="text-center mb-8"><h2 className="text-2xl font-bold text-slate-800">Hoşgeldiniz 👋</h2></div>
+    <div className="p-6 flex flex-col h-full justify-center bg-white">
+        <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">Hoşgeldiniz 👋</h2>
+            <p className="text-slate-500 text-sm">Başlamak için lütfen giriş yapın.</p>
+        </div>
         <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
-            <button onClick={() => setActiveTab('student')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${activeTab === 'student' ? 'bg-white shadow' : 'text-slate-400'}`}>Öğrenci</button>
-            <button onClick={() => setActiveTab('teacher')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${activeTab === 'teacher' ? 'bg-white shadow' : 'text-slate-400'}`}>Öğretmen</button>
+            <button onClick={() => {setActiveTab('student'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${activeTab === 'student' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Öğrenci</button>
+            <button onClick={() => {setActiveTab('teacher'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${activeTab === 'teacher' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Öğretmen</button>
         </div>
         {activeTab === 'student' ? (
             <div className="space-y-4">
-                <input type="text" value={studentName} onChange={(e)=>setStudentName(e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl" placeholder="Ad Soyad" />
-                <div className="grid grid-cols-4 gap-2">{[1,2,3,4,5,6,7,8].map(g=><button key={g} onClick={()=>setStudentGrade(g.toString())} className={`py-2 rounded-lg border font-bold ${studentGrade===g.toString()?'bg-indigo-600 text-white':'bg-white'}`}>{g}</button>)}</div>
-                <button onClick={()=>handleLogin('student')} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-lg">Başla</button>
+                <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Ad Soyad</label><div className="relative mt-1"><User className="absolute left-3 top-3.5 text-slate-400 w-5 h-5" /><input type="text" value={studentName} onChange={(e)=>setStudentName(e.target.value)} className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Örn: Ali Yılmaz" /></div></div>
+                <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Sınıf</label><div className="grid grid-cols-4 gap-2 mt-1">{[1,2,3,4,5,6,7,8].map(g=><button key={g} onClick={()=>setStudentGrade(g.toString())} className={`py-2 rounded-lg font-bold border ${studentGrade===g.toString()?'bg-indigo-600 text-white border-indigo-600':'bg-white text-slate-600 hover:border-indigo-300'}`}>{g}.</button>)}</div></div>
+                <button onClick={()=>handleLogin('student')} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-lg mt-2 active:scale-95 transition">Başla</button>
             </div>
         ) : (
             <div className="space-y-4">
-                <input type="password" value={pass} onChange={(e)=>setPass(e.target.value)} className="w-full p-3 bg-slate-50 border rounded-xl" placeholder="Şifre" />
-                <button onClick={()=>handleLogin('teacher')} className="w-full bg-slate-800 text-white font-bold py-3.5 rounded-xl shadow-lg">Giriş</button>
+                <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Şifre</label><div className="relative mt-1"><LockKeyhole className="absolute left-3 top-3.5 text-slate-400 w-5 h-5" /><input type="password" value={pass} onChange={(e)=>setPass(e.target.value)} className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="••••" /></div></div>
+                <button onClick={()=>handleLogin('teacher')} className="w-full bg-slate-800 text-white font-bold py-3.5 rounded-xl shadow-lg mt-2 active:scale-95 transition">Giriş Yap</button>
             </div>
         )}
-        {error && <div className="mt-4 text-red-500 text-center text-sm">{error}</div>}
+        {error && <div className="mt-6 p-3 bg-red-50 text-red-600 rounded-xl text-sm flex items-center justify-center"><AlertTriangle className="w-4 h-4 mr-2" /> {error}</div>}
     </div>
   );
 }
@@ -151,32 +185,36 @@ function StudentApp({ user, studentName, grade }) {
   useEffect(() => {
     if (!user) return;
     const docRef = doc(db, 'artifacts', APP_ID, 'public_data', docId);
+    
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) setData(docSnap.data());
-      else {
-        setDoc(docRef, { name: studentName, grade: grade, createdAt: serverTimestamp(), days: {} }, { merge: true });
-        setData({ name: studentName, grade: grade, days: {} }); 
+      if (docSnap.exists()) {
+        setData(docSnap.data());
+      } else {
+        const initialData = { name: studentName, grade: grade, createdAt: serverTimestamp(), days: {} };
+        setDoc(docRef, initialData, { merge: true });
+        setData(initialData); 
       }
     });
     return () => unsubscribe();
   }, [user, docId, studentName, grade]);
 
   const saveDayData = async (day, dayData) => {
+    setData(prev => ({ ...prev, days: { ...prev.days, [day]: dayData } }));
     const docRef = doc(db, 'artifacts', APP_ID, 'public_data', docId);
     await setDoc(docRef, { days: { [day]: dayData }, lastUpdated: serverTimestamp() }, { merge: true });
     setSelectedDay(null);
   };
 
-  if (!data) return <div className="p-8 text-center text-slate-400">Yükleniyor...</div>;
+  if (!data) return <div className="p-8 text-center text-slate-400">Veriler hazırlanıyor...</div>;
 
   return (
     <>
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-6 pb-24">
         {activeTab === 'home' && <HomeView data={data} grade={grade} studentName={studentName} />}
         {activeTab === 'calendar' && <CalendarView data={data} onDayClick={setSelectedDay} />}
       </div>
-      {selectedDay && <DayEditModal day={selectedDay} curriculum={myCurriculum} initialData={data.days?.[selectedDay]} onClose={() => setSelectedDay(null)} onSave={saveDayData} />}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-2 flex justify-around shadow-lg">
+      {selectedDay && <DayEditModal day={selectedDay} grade={grade} curriculum={myCurriculum} initialData={data.days?.[selectedDay]} onClose={() => setSelectedDay(null)} onSave={saveDayData} />}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-2 flex justify-around items-center z-40 w-full max-w-md mx-auto shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <NavButton icon={Home} label="Ana Sayfa" isActive={activeTab === 'home'} onClick={() => setActiveTab('home')} />
         <NavButton icon={Calendar} label="Program" isActive={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} />
       </div>
@@ -185,54 +223,133 @@ function StudentApp({ user, studentName, grade }) {
 }
 
 const NavButton = ({ icon: Icon, label, isActive, onClick }) => (
-    <button onClick={onClick} className={`flex flex-col items-center p-2 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}>
-        <Icon className="w-6 h-6 mb-1" strokeWidth={isActive ? 2.5 : 2} />
+    <button onClick={onClick} className={`flex flex-col items-center p-2 rounded-lg transition ${isActive ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+        <Icon className={`w-6 h-6 mb-1 ${isActive ? 'fill-current opacity-20' : ''}`} strokeWidth={isActive ? 2.5 : 2} />
         <span className="text-[10px] font-bold">{label}</span>
     </button>
 );
 
+// --- HOME VIEW (YENİLENMİŞ TASARIM) ---
 function HomeView({ data, grade, studentName }) {
-    const completed = Object.keys(data.days || {}).length;
-    const pct = Math.round((completed / TOTAL_DAYS) * 100);
-    const [advice, setAdvice] = useState("Hoşgeldin! 👋");
+    const completedCount = Object.keys(data.days || {}).length;
+    const percentage = Math.round((completedCount / TOTAL_DAYS) * 100);
+    const [advice, setAdvice] = useState("");
+    const [greeting, setGreeting] = useState("");
+
+    // İstatistik Hesapla
+    let totalQuestions = 0;
+    Object.values(data.days || {}).forEach(day => {
+        Object.keys(day).forEach(key => {
+            if(key.endsWith('True')) totalQuestions += parseInt(day[key] || 0);
+        });
+    });
 
     useEffect(() => {
+        // Canlı Selamlama
+        const hour = new Date().getHours();
+        if (hour < 12) setGreeting("Günaydın");
+        else if (hour < 18) setGreeting("Tünaydın");
+        else setGreeting("İyi Akşamlar");
+
+        // Akıllı Tavsiye Motoru
         const days = Object.keys(data.days || {}).map(Number).sort((a,b)=>b-a);
-        if (days.length > 0) {
-            const last = data.days[days[0]];
-            if ((parseInt(last.matFalse)||0) > 8) setAdvice(ADVICE_POOL.math[0]);
-            else setAdvice(ADVICE_POOL.general[0]);
+        const lastDay = days.length > 0 ? data.days[days[0]] : null;
+
+        if (lastDay) {
+            const matWrong = parseInt(lastDay.matFalse) || 0;
+            const trWrong = parseInt(lastDay.trFalse) || 0;
+            if (matWrong > 8) setAdvice(ADVICE_POOL.math[Math.floor(Math.random()*ADVICE_POOL.math.length)]);
+            else if (trWrong > 8) setAdvice(ADVICE_POOL.turkish[Math.floor(Math.random()*ADVICE_POOL.turkish.length)]);
+            else setAdvice(ADVICE_POOL.general[Math.floor(Math.random()*ADVICE_POOL.general.length)]);
+        } else {
+            setAdvice("Maceraya başlamak için 'Program' sekmesine gidip 1. Günü seç! 👋");
         }
     }, [data]);
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="bg-indigo-600 rounded-2xl p-6 text-white shadow-lg">
-                <div className="flex justify-between mb-4">
-                    <div><h2 className="text-xl font-bold">{studentName.split(' ')[0]}</h2><p className="text-indigo-200 text-sm">{grade}. Sınıf</p></div>
-                    <div className="bg-white/20 p-2 rounded-lg"><span className="text-2xl font-bold">%{pct}</span></div>
+            {/* Üst Bilgi Kartı */}
+            <div className="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10"><Trophy className="w-32 h-32"/></div>
+                <div className="relative z-10">
+                    <p className="text-indigo-100 text-sm font-medium mb-1">{greeting},</p>
+                    <h2 className="text-3xl font-bold mb-4">{studentName.split(' ')[0]} 🚀</h2>
+                    
+                    <div className="flex justify-between items-end">
+                        <div>
+                            <div className="text-4xl font-bold">{percentage}%</div>
+                            <div className="text-xs text-indigo-100 opacity-80 mt-1">Kamp Tamamlandı</div>
+                        </div>
+                        <div className="h-14 w-14 rounded-full border-4 border-white/20 flex items-center justify-center font-bold text-lg bg-white/10 backdrop-blur-md">
+                            {completedCount}/15
+                        </div>
+                    </div>
+                    <div className="w-full bg-black/20 rounded-full h-2 mt-4"><div className="bg-white h-2 rounded-full transition-all duration-1000" style={{ width: `${percentage}%` }}></div></div>
                 </div>
-                <div className="w-full bg-black/20 rounded-full h-2 mb-2"><div className="bg-white h-2 rounded-full" style={{ width: `${pct}%` }}></div></div>
-                <p className="text-xs text-indigo-100">{completed} / 15 Gün</p>
             </div>
-            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 shadow-sm">
-                <div className="flex items-center mb-2 font-bold text-amber-700"><Lightbulb className="w-4 h-4 mr-2"/> Koçun Diyor Ki:</div>
-                <p className="text-sm text-amber-900 italic">"{advice}"</p>
+
+            {/* Hızlı İstatistikler */}
+            <div className="grid grid-cols-2 gap-3">
+                <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center shadow-sm">
+                    <div className="bg-orange-100 p-2 rounded-full mb-2"><Flame className="w-6 h-6 text-orange-600"/></div>
+                    <span className="text-2xl font-bold text-slate-800">{completedCount} Gün</span>
+                    <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">İstikrar</span>
+                </div>
+                <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex flex-col items-center justify-center text-center shadow-sm">
+                    <div className="bg-blue-100 p-2 rounded-full mb-2"><Target className="w-6 h-6 text-blue-600"/></div>
+                    <span className="text-2xl font-bold text-slate-800">{totalQuestions}</span>
+                    <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Soru Çözüldü</span>
+                </div>
             </div>
-            {data.teacherMessage && <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 shadow-sm"><h4 className="text-xs font-bold text-blue-800 mb-1">Öğretmeninden:</h4><p className="text-sm text-blue-900">{data.teacherMessage}</p></div>}
+
+            {/* Rozet Müzesi */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+                <h3 className="font-bold text-slate-700 text-sm mb-4 flex items-center"><Award className="w-4 h-4 mr-2 text-yellow-500"/> Rozetlerin</h3>
+                <div className="flex justify-between px-2">
+                    <Badge icon={Star} label="Başlangıç" active={totalQuestions > 0} color="yellow" />
+                    <Badge icon={Zap} label="Hızcı" active={completedCount > 5} color="blue" />
+                    <Badge icon={Trophy} label="Efsane" active={totalQuestions > 500} color="purple" />
+                </div>
+            </div>
+            
+            {/* Akıllı Koç */}
+            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex gap-3 items-start shadow-sm">
+                <Lightbulb className="w-6 h-6 text-emerald-600 flex-shrink-0 mt-1"/>
+                <div>
+                    <h4 className="text-xs font-bold text-emerald-800 uppercase mb-1">Koçun Diyor Ki:</h4>
+                    <p className="text-sm text-emerald-900 font-medium leading-tight">"{advice}"</p>
+                </div>
+            </div>
+
+            {data.teacherMessage && (
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 shadow-sm flex gap-3">
+                    <MessageSquare className="w-5 h-5 text-blue-600 flex-shrink-0 mt-1" />
+                    <div><h4 className="text-xs font-bold text-blue-800 uppercase mb-1">Öğretmeninden Not</h4><p className="text-sm text-blue-900">{data.teacherMessage}</p></div>
+                </div>
+            )}
         </div>
     );
 }
 
+const Badge = ({ icon: Icon, label, active, color }) => (
+    <div className={`flex flex-col items-center transition-all duration-500 ${active ? 'opacity-100 scale-110' : 'opacity-30 grayscale scale-100'}`}>
+        <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 bg-${color}-100 text-${color}-600 border border-${color}-200 shadow-sm`}>
+            <Icon className="w-6 h-6" />
+        </div>
+        <span className="text-[10px] font-bold text-slate-600">{label}</span>
+    </div>
+);
+
+// --- ALT BİLEŞENLER (CALENDAR) ---
 function CalendarView({ data, onDayClick }) {
     return (
-        <div className="pb-16">
+        <div className="pb-16 animate-in slide-in-from-bottom-4 duration-500">
             <h3 className="font-bold text-slate-800 text-lg mb-4 flex items-center"><Calendar className="w-5 h-5 mr-2 text-indigo-600" />Takvimim</h3>
             <div className="grid grid-cols-3 gap-3">
                 {DAYS_ARRAY.map(day => {
                     const isDone = !!data.days?.[day];
                     return (
-                        <button key={day} onClick={() => onDayClick(day)} className={`p-3 rounded-xl border-2 text-left active:scale-95 transition ${isDone ? 'bg-indigo-50 border-indigo-500' : 'bg-white border-slate-100'}`}>
+                        <button key={day} onClick={() => onDayClick(day)} className={`p-3 rounded-xl border-2 text-left transition transform active:scale-95 ${isDone ? 'bg-indigo-50 border-indigo-500 shadow-sm' : 'bg-white border-slate-100 hover:border-indigo-200'}`}>
                             <span className={`text-sm font-bold block ${isDone ? 'text-indigo-700' : 'text-slate-400'}`}>{day}. Gün</span>
                             <div className="mt-2 flex justify-end">{isDone ? <CheckCircle2 className="w-4 h-4 text-indigo-600"/> : <div className="w-4 h-4 rounded-full border-2 border-slate-200"></div>}</div>
                         </button>
@@ -243,8 +360,11 @@ function CalendarView({ data, onDayClick }) {
     );
 }
 
+// --- ÖĞRETMEN UYGULAMASI (YENİLENMİŞ) ---
 function TeacherApp({ user }) {
     const [students, setStudents] = useState([]);
+    const [searchTerm, setSearchTerm] = useState("");
+
     useEffect(() => {
         if(!user) return;
         const colRef = collection(db, 'artifacts', APP_ID, 'public_data');
@@ -255,10 +375,41 @@ function TeacherApp({ user }) {
         });
     }, [user]);
 
+    const filteredStudents = students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    // İstatistikler
+    const totalStudents = students.length;
+    const activeToday = students.filter(s => s.lastUpdated && new Date(s.lastUpdated.seconds * 1000).toDateString() === new Date().toDateString()).length;
+
     return (
         <div className="p-4 pb-20 space-y-4">
-            <div className="bg-slate-800 text-white p-4 rounded-xl shadow-lg"><h2 className="font-bold text-lg">Öğretmen Paneli</h2><p className="text-slate-400 text-sm">{students.length} öğrenci</p></div>
-            {students.map(std => <StudentDetailRow key={std.id} student={std} />)}
+            <div className="bg-slate-800 text-white p-6 rounded-2xl shadow-lg">
+                <h2 className="font-bold text-xl mb-1">Öğretmen Paneli</h2>
+                <div className="flex gap-4 mt-4 text-sm">
+                    <div>
+                        <span className="block text-2xl font-bold">{totalStudents}</span>
+                        <span className="text-slate-400 text-xs">Toplam Öğrenci</span>
+                    </div>
+                    <div>
+                        <span className="block text-2xl font-bold text-green-400">{activeToday}</span>
+                        <span className="text-slate-400 text-xs">Bugün Aktif</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Arama */}
+            <div className="relative">
+                <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
+                <input 
+                    type="text" 
+                    placeholder="Öğrenci ara..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-800 outline-none"
+                />
+            </div>
+
+            {filteredStudents.map(std => <StudentDetailRow key={std.id} student={std} />)}
         </div>
     )
 }
@@ -267,26 +418,38 @@ function StudentDetailRow({ student }) {
   const [expanded, setExpanded] = useState(false);
   const [msg, setMsg] = useState(student.teacherMessage || '');
   const completed = Object.keys(student.days || {}).length;
+  const pct = Math.round((completed / TOTAL_DAYS) * 100);
 
   const sendFeedback = async () => {
     const docRef = doc(db, 'artifacts', APP_ID, 'public_data', student.id);
     await setDoc(docRef, { teacherMessage: msg }, { merge: true });
-    alert('Gönderildi');
+    alert('Mesaj öğrenciye iletildi.');
   };
 
   return (
-    <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-        <div className="p-4 flex justify-between items-center" onClick={() => setExpanded(!expanded)}>
-            <div className="flex items-center gap-3">
-                <div className="bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center font-bold text-slate-600">{student.grade}</div>
-                <div><h4 className="font-bold text-sm text-slate-800">{student.name}</h4><span className="text-xs text-slate-500">{completed}/15 Gün</span></div>
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition">
+        <div className="p-4 flex justify-between items-center cursor-pointer" onClick={() => setExpanded(!expanded)}>
+            <div className="flex items-center gap-3 w-full">
+                <div className="bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center font-bold text-slate-600 flex-shrink-0">{student.grade}</div>
+                <div className="flex-1">
+                    <div className="flex justify-between">
+                        <h4 className="font-bold text-sm text-slate-800">{student.name}</h4>
+                        <span className="text-xs font-bold text-slate-500">%{pct}</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1">
+                        <div className={`h-1.5 rounded-full ${pct === 100 ? 'bg-green-500' : 'bg-indigo-500'}`} style={{ width: `${pct}%` }}></div>
+                    </div>
+                </div>
             </div>
-            {expanded ? <ChevronUp className="text-slate-400 w-5 h-5"/> : <ChevronDown className="text-slate-400 w-5 h-5"/>}
+            {expanded ? <ChevronUp className="text-slate-400 w-5 h-5 ml-3"/> : <ChevronDown className="text-slate-400 w-5 h-5 ml-3"/>}
         </div>
         {expanded && (
-            <div className="bg-slate-50 p-4 border-t">
-                <div className="flex gap-2 mb-2"><input className="flex-1 text-xs p-2 border rounded" placeholder="Mesaj..." value={msg} onChange={e=>setMsg(e.target.value)} /></div>
-                <button onClick={sendFeedback} className="w-full bg-slate-800 text-white text-xs py-2 rounded font-bold">Gönder</button>
+            <div className="bg-slate-50 p-4 border-t border-slate-100">
+                <p className="text-xs text-slate-500 mb-2 font-bold uppercase">Öğrenciye Not Gönder:</p>
+                <div className="flex gap-2 mb-2">
+                    <input className="flex-1 text-sm p-2 border rounded-lg outline-none focus:border-slate-400" placeholder="Örn: Harika gidiyorsun!" value={msg} onChange={e=>setMsg(e.target.value)} />
+                </div>
+                <button onClick={sendFeedback} className="w-full bg-slate-800 hover:bg-slate-700 text-white text-sm py-2 rounded-lg font-bold transition">Gönder</button>
             </div>
         )}
     </div>
@@ -298,9 +461,9 @@ function DayEditModal({ day, grade, curriculum, initialData, onClose, onSave }) 
   const handleChange = (k, v) => setForm(p => ({ ...p, [k]: v }));
   
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 animate-in zoom-in-95 duration-200">
       <div className="bg-white w-full max-w-sm rounded-2xl overflow-hidden flex flex-col max-h-[85vh]">
-        <div className="bg-indigo-600 p-4 text-white flex justify-between items-center"><h3 className="font-bold">{day}. Gün</h3><button onClick={onClose}><X className="w-6 h-6" /></button></div>
+        <div className="bg-indigo-600 p-4 text-white flex justify-between items-center"><h3 className="font-bold">{day}. Gün Girişi</h3><button onClick={onClose}><X className="w-6 h-6" /></button></div>
         <div className="overflow-y-auto p-4 space-y-4">
             {Object.keys(curriculum).map(key => {
                 const meta = FIELD_METADATA[key];
@@ -323,7 +486,7 @@ function DayEditModal({ day, grade, curriculum, initialData, onClose, onSave }) 
                 );
             })}
         </div>
-        <div className="p-4 border-t bg-slate-50"><button onClick={() => onSave(day, form)} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg">Kaydet</button></div>
+        <div className="p-4 border-t bg-slate-50"><button onClick={() => onSave(day, form)} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition">Kaydet</button></div>
       </div>
     </div>
   );
