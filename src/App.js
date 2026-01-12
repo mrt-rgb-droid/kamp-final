@@ -5,7 +5,7 @@ import {
   ChevronUp, ChevronDown, X, Share, MoreVertical, Phone, AlertTriangle, 
   RefreshCcw, LockKeyhole, GraduationCap, Lightbulb, Trophy, Flame, 
   Target, Zap, Search, Award, Loader2, Trash2, TrendingUp, Settings, Plus, Save, Activity,
-  History, Edit3
+  History, Edit3, Megaphone, Check, List, Clock
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
@@ -23,25 +23,27 @@ const firebaseConfig = {
 };
 
 // --- AYARLAR ---
-// ÖNEMLİ: Veri kaybı olmaması için burayı sabit tutuyoruz.
-const APP_ID = "kamp-takip-yonetici-v2"; 
+// Verilerin kaybolmaması için v3'te kalıyoruz.
+const APP_ID = "kamp-takip-yonetici-v3"; 
 const TEACHER_PASS = "1876"; 
 const TOTAL_DAYS = 15;
 const DAYS_ARRAY = Array.from({ length: TOTAL_DAYS }, (_, i) => i + 1);
 
-// Varsayılan Müfredat
+// --- MÜFREDAT YAPISI ---
 const DEFAULT_CURRICULUM = {
   1: [{ id: 'mat', target: 5 }, { id: 'tr', target: 5 }, { id: 'hayat', target: 5 }, { id: 'kitap', target: 20 }],
   2: [{ id: 'mat', target: 10 }, { id: 'tr', target: 10 }, { id: 'hayat', target: 10 }, { id: 'kitap', target: 20 }],
   3: [{ id: 'mat', target: 15 }, { id: 'tr', target: 10 }, { id: 'hayat', target: 10 }, { id: 'kitap', target: 30 }],
   4: [{ id: 'mat', target: 20 }, { id: 'tr', target: 20 }, { id: 'fen', target: 15 }, { id: 'sos', target: 15 }, { id: 'kitap', target: 30 }],
-  5: [{ id: 'mat', target: 30 }, { id: 'tr', target: 30 }, { id: 'fen', target: 20 }, { id: 'sos', target: 20 }, { id: 'kitap', target: 30 }],
-  6: [{ id: 'mat', target: 40 }, { id: 'tr', target: 40 }, { id: 'fen', target: 30 }, { id: 'fenTekrar', target: 30 }],
-  7: [{ id: 'mat', target: 50 }, { id: 'tr', target: 50 }, { id: 'fen', target: 30 }, { id: 'fenTekrar', target: 30 }],
-  8: [{ id: 'mat', target: 60 }, { id: 'tr', target: 60 }, { id: 'fen', target: 40 }, { id: 'inkilap', target: 25 }, { id: 'fenTekrar', target: 30 }]
+  
+  // Ortaokul: "Serbest Çalışma" (Listeli + Süreli)
+  5: [{ id: 'mat', target: 30 }, { id: 'tr', target: 30 }, { id: 'fen', target: 20 }, { id: 'sos', target: 20 }, { id: 'serbestCalisma', target: 30 }],
+  6: [{ id: 'mat', target: 40 }, { id: 'tr', target: 40 }, { id: 'fen', target: 30 }, { id: 'serbestCalisma', target: 30 }],
+  7: [{ id: 'mat', target: 50 }, { id: 'tr', target: 50 }, { id: 'fen', target: 30 }, { id: 'serbestCalisma', target: 30 }],
+  8: [{ id: 'mat', target: 60 }, { id: 'tr', target: 60 }, { id: 'fen', target: 40 }, { id: 'inkilap', target: 25 }, { id: 'serbestCalisma', target: 30 }]
 };
 
-// Ders Tanımları ve Tipleri
+// --- DERS TANIMLARI ---
 const SUBJECT_METADATA = {
   mat: { label: "Matematik", icon: Calculator, color: "blue", type: "question" },
   tr: { label: "Türkçe", icon: BookOpen, color: "red", type: "question" },
@@ -51,17 +53,31 @@ const SUBJECT_METADATA = {
   inkilap: { label: "İnkılap Tarihi", icon: BookOpen, color: "amber", type: "question" },
   ing: { label: "İngilizce", icon: MessageSquare, color: "purple", type: "question" },
   din: { label: "Din Kültürü", icon: Star, color: "teal", type: "question" },
+  
   kitap: { label: "Kitap Okuma", icon: BookOpen, color: "pink", type: "duration" },
-  fenTekrar: { label: "Fen Tekrarı", icon: FlaskConical, color: "lime", type: "duration" },
-  konu: { label: "Konu Çalışma", icon: Lightbulb, color: "indigo", type: "duration" },
   spor: { label: "Spor/Egzersiz", icon: Trophy, color: "cyan", type: "duration" },
-  kodlama: { label: "Kodlama", icon: Zap, color: "violet", type: "duration" }
+  kodlama: { label: "Kodlama", icon: Zap, color: "violet", type: "duration" },
+
+  // GÜNCELLENEN: SERBEST ÇALIŞMA (LİSTE + SÜRE)
+  serbestCalisma: { 
+      label: "Serbest Çalışma", 
+      icon: List, 
+      color: "indigo", 
+      type: "selection", 
+      options: [
+          "Kitap Okuma 📚", 
+          "Matematik Konu 🧮", 
+          "Fen Konu 🧪", 
+          "Türkçe Konu 📖", 
+          "Sosyal/İnkılap Konu 🌍", 
+          "İngilizce Konu 🗣️", 
+          "Din Kültürü Konu 🕌"
+      ] 
+  }
 };
 
-// Yardımcı Fonksiyon: Dersin Adını ve İkonunu Getirir (Özel İsim Desteği)
 const getSubjectInfo = (item) => {
     const baseMeta = SUBJECT_METADATA[item.id] || { label: item.id, icon: Star, color: 'gray', type: 'question' };
-    // Eğer öğretmen özel isim girdiyse (item.customLabel), onu kullan. Yoksa varsayılanı kullan.
     return {
         ...baseMeta,
         label: item.customLabel || baseMeta.label,
@@ -69,7 +85,6 @@ const getSubjectInfo = (item) => {
     };
 };
 
-// Akıllı Tavsiye Havuzu
 const ADVICE_POOL = {
   math: ["Matematik işlemlerini zihinden değil, kağıda yazarak yapmayı dene. ✍️", "Takıldığın sorularda önce çözümlü örneklere bak. 🧮"],
   turkish: ["Paragraf sorularında önce koyu renkli soru kökünü oku. 👁️", "Kitap okuma saatini 10 dakika artırmaya ne dersin? 📚"],
@@ -77,7 +92,7 @@ const ADVICE_POOL = {
   general: ["Harika gidiyorsun! Mola vermeyi ve su içmeyi unutma. 💧", "Bugünkü çaban yarınki başarının anahtarıdır. 🗝️"]
 };
 
-// Firebase Başlatma
+// Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -98,6 +113,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [curriculum, setCurriculum] = useState(DEFAULT_CURRICULUM);
+  const [announcement, setAnnouncement] = useState("");
 
   useEffect(() => {
     const initAuth = async () => {
@@ -116,14 +132,15 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const docRef = doc(db, 'artifacts', APP_ID, 'settings', 'curriculum');
-    const unsub = onSnapshot(docRef, (snap) => {
-        if (snap.exists()) {
-            setCurriculum(snap.data());
-        } else {
-            setDoc(docRef, DEFAULT_CURRICULUM).catch(e => console.error(e));
-        }
+    const unsubCurriculum = onSnapshot(docRef, (snap) => {
+        if (snap.exists()) setCurriculum(snap.data());
+        else setDoc(docRef, DEFAULT_CURRICULUM).catch(e => console.error(e));
     });
-    return () => unsub();
+    const annRef = doc(db, 'artifacts', APP_ID, 'settings', 'announcement');
+    const unsubAnnounce = onSnapshot(annRef, (snap) => {
+        if (snap.exists()) setAnnouncement(snap.data().text || "");
+    });
+    return () => { unsubCurriculum(); unsubAnnounce(); };
   }, [user]);
 
   const handleLogout = () => {
@@ -147,7 +164,7 @@ export default function App() {
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm"><GraduationCap className="w-6 h-6 text-white" /></div>
-              <div><h1 className="text-lg font-bold leading-none">Kamp Takip</h1><span className="text-[10px] opacity-80 uppercase tracking-wider">Öğretmen Yönetimli</span></div>
+              <div><h1 className="text-lg font-bold leading-none">Kamp Takip</h1><span className="text-[10px] opacity-80 uppercase tracking-wider">Öğrenci Odaklı</span></div>
             </div>
             {!role && <button onClick={() => setShowInstallModal(true)} className="flex items-center text-xs bg-indigo-500 hover:bg-indigo-400 px-3 py-1.5 rounded-full transition"><Download className="w-3 h-3 mr-1" /> İndir</button>}
             {role && (
@@ -164,9 +181,9 @@ export default function App() {
             {!user || !role ? (
                 <LoginScreen setRole={setRole} studentName={studentName} setStudentName={setStudentName} studentGrade={studentGrade} setStudentGrade={setStudentGrade} />
             ) : role === 'student' ? (
-                <StudentApp user={user} studentName={studentName} grade={parseInt(studentGrade)} curriculum={curriculum} />
+                <StudentApp user={user} studentName={studentName} grade={parseInt(studentGrade)} curriculum={curriculum} announcement={announcement} />
             ) : (
-                <TeacherApp user={user} curriculum={curriculum} />
+                <TeacherApp user={user} curriculum={curriculum} currentAnnouncement={announcement} />
             )}
         </main>
 
@@ -218,7 +235,7 @@ function LoginScreen({ setRole, studentName, setStudentName, studentGrade, setSt
   );
 }
 
-function StudentApp({ user, studentName, grade, curriculum }) {
+function StudentApp({ user, studentName, grade, curriculum, announcement }) {
   const [activeTab, setActiveTab] = useState('home');
   const [data, setData] = useState(null); 
   const [selectedDay, setSelectedDay] = useState(null);
@@ -253,7 +270,7 @@ function StudentApp({ user, studentName, grade, curriculum }) {
   return (
     <>
       <div className="p-4 space-y-6 pb-24">
-        {activeTab === 'home' && <HomeView data={data} grade={grade} studentName={studentName} curriculum={myCurriculum} />}
+        {activeTab === 'home' && <HomeView data={data} grade={grade} studentName={studentName} curriculum={myCurriculum} announcement={announcement} />}
         {activeTab === 'calendar' && <CalendarView data={data} onDayClick={setSelectedDay} />}
       </div>
       {selectedDay && <DayEditModal day={selectedDay} curriculum={myCurriculum} initialData={data.days?.[selectedDay]} onClose={() => setSelectedDay(null)} onSave={saveDayData} />}
@@ -272,7 +289,7 @@ const NavButton = ({ icon: Icon, label, isActive, onClick }) => (
     </button>
 );
 
-function HomeView({ data, grade, studentName, curriculum }) {
+function HomeView({ data, grade, studentName, curriculum, announcement }) {
     const completedCount = Object.keys(data.days || {}).length;
     const percentage = Math.round((completedCount / TOTAL_DAYS) * 100);
     const [advice, setAdvice] = useState("");
@@ -304,6 +321,17 @@ function HomeView({ data, grade, studentName, curriculum }) {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
+            {/* DUYURU PANOSU */}
+            {announcement && (
+                <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-start gap-3 shadow-sm animate-pulse">
+                    <Megaphone className="w-5 h-5 text-red-600 flex-shrink-0 mt-1" />
+                    <div>
+                        <h4 className="text-xs font-bold text-red-700 uppercase mb-1">Duyuru</h4>
+                        <p className="text-sm text-red-800 font-medium leading-tight">{announcement}</p>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10"><Trophy className="w-32 h-32"/></div>
                 <div className="relative z-10">
@@ -341,7 +369,7 @@ function HomeView({ data, grade, studentName, curriculum }) {
                         return (
                              <div key={item.id} className="flex items-center gap-2 text-xs bg-slate-50 p-2 rounded">
                                  {meta.icon && <meta.icon className={`w-4 h-4 text-${meta.color}-500`} />}
-                                 <span className="font-medium text-slate-600">{meta.label}: {item.target} {meta.type === 'duration' ? 'dk' : 'soru'}</span>
+                                 <span className="font-medium text-slate-600">{meta.label}: {item.target} {meta.type === 'question' ? 'soru' : 'dk'}</span>
                              </div>
                         )
                     })}
@@ -386,10 +414,11 @@ function CalendarView({ data, onDayClick }) {
 }
 
 // --- TEACHER APP ---
-function TeacherApp({ user, curriculum }) {
+function TeacherApp({ user, curriculum, currentAnnouncement }) {
     const [students, setStudents] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [isEditingProgram, setIsEditingProgram] = useState(false);
+    const [newAnnouncement, setNewAnnouncement] = useState(currentAnnouncement || "");
 
     useEffect(() => {
         if(!user) return;
@@ -400,6 +429,11 @@ function TeacherApp({ user, curriculum }) {
             setStudents(list);
         });
     }, [user]);
+
+    const handleSaveAnnouncement = async () => {
+        await setDoc(doc(db, 'artifacts', APP_ID, 'settings', 'announcement'), { text: newAnnouncement });
+        alert("Duyuru yayınlandı!");
+    };
 
     const deleteStudent = async (studentId) => {
         if(window.confirm('Bu öğrenciyi silmek istediğinize emin misiniz?')) {
@@ -429,6 +463,20 @@ function TeacherApp({ user, curriculum }) {
                     <button onClick={() => setIsEditingProgram(true)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center transition">
                         <Settings className="w-4 h-4 mr-2" /> Programı Düzenle
                     </button>
+                </div>
+            </div>
+
+            {/* DUYURU EKLEME ALANI */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <h3 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center"><Megaphone className="w-3 h-3 mr-2"/> Duyuru Panosu</h3>
+                <div className="flex gap-2">
+                    <input 
+                        className="flex-1 text-sm p-2 border rounded-lg outline-none" 
+                        placeholder="Tüm öğrencilere duyuru..." 
+                        value={newAnnouncement} 
+                        onChange={e=>setNewAnnouncement(e.target.value)} 
+                    />
+                    <button onClick={handleSaveAnnouncement} className="bg-red-500 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-red-600 transition">Yayınla</button>
                 </div>
             </div>
             
@@ -522,7 +570,7 @@ function ProgramEditorModal({ curriculum, onClose }) {
                                 {meta.icon && <div className={`p-2 bg-${meta.color}-50 rounded-lg`}><meta.icon className={`w-5 h-5 text-${meta.color}-600`}/></div>}
                                 <div>
                                     <div className="font-bold text-slate-700 text-sm">{meta.label}</div>
-                                    <div className="text-xs text-slate-500">Hedef: {item.target} {meta.type === 'duration' ? 'dk' : 'soru'}</div>
+                                    <div className="text-xs text-slate-500">Hedef: {item.target} {meta.type === 'question' ? 'soru' : 'dk'}</div>
                                 </div>
                             </div>
                             <button onClick={() => handleRemoveItem(idx)} className="text-red-400 hover:text-red-600 p-2"><Trash2 className="w-4 h-4"/></button>
@@ -550,7 +598,7 @@ function StudentDetailRow({ student, onDelete, curriculum }) {
     alert('Mesaj gönderildi.');
   };
 
-  // Dinamik İstatistik Hesaplama (Toplamlar)
+  // Dinamik İstatistik Hesaplama
   const stats = {};
   const safeCurriculum = curriculum || [];
   safeCurriculum.forEach(item => {
@@ -560,7 +608,8 @@ function StudentDetailRow({ student, onDelete, curriculum }) {
           type: SUBJECT_METADATA[item.id]?.type || 'question', 
           correct: 0, 
           wrong: 0, 
-          doneCount: 0 
+          doneCount: 0,
+          selectionHistory: [] // Seçmeli dersler için
       };
   });
 
@@ -576,6 +625,11 @@ function StudentDetailRow({ student, onDelete, curriculum }) {
           }
           else if (day[key] === true && stats[key]) {
               stats[key].doneCount += 1;
+          }
+          // Seçmeli ders kontrolü (Değer string ise)
+          else if (typeof day[key] === 'string' && stats[key]) {
+              stats[key].doneCount += 1;
+              stats[key].selectionHistory.push(day[key]);
           }
       });
   });
@@ -611,7 +665,7 @@ function StudentDetailRow({ student, onDelete, curriculum }) {
                                         <span className="font-bold text-xs text-slate-700">{stat.label}</span>
                                     </div>
                                     <div className="text-xs font-bold">
-                                        {stat.type === 'duration' ? (
+                                        {stat.type === 'duration' || stat.type === 'selection' ? (
                                             <span className="text-indigo-600">{stat.doneCount} Gün</span>
                                         ) : (
                                             <>
@@ -638,14 +692,25 @@ function StudentDetailRow({ student, onDelete, curriculum }) {
                                     <div className="font-bold text-indigo-600 mb-1">{day}. Gün Özeti:</div>
                                     <div className="flex flex-wrap gap-2">
                                         {Object.keys(dayData).map(key => {
+                                            // FIX: trFalse, fenFalse gibi hatalı gösterimleri engellemek için kontrol
+                                            if (key.endsWith('False')) return null;
+
                                             if (key.endsWith('True')) {
                                                 const subj = key.replace('True', '');
                                                 const label = safeCurriculum.find(i => i.id === subj)?.customLabel || SUBJECT_METADATA[subj]?.label || subj;
                                                 return <span key={key} className="bg-slate-50 px-1 rounded">{label}: {dayData[key]}D {dayData[key.replace('True', 'False')]}Y</span>
                                             }
-                                            if (dayData[key] === true && !key.endsWith('False')) {
+                                            // Normal Checkbox (True)
+                                            if (dayData[key] === true) {
                                                  const label = safeCurriculum.find(i => i.id === key)?.customLabel || SUBJECT_METADATA[key]?.label || key;
                                                  return <span key={key} className="bg-green-50 text-green-700 px-1 rounded flex items-center"><CheckCircle2 className="w-3 h-3 mr-1"/>{label}</span>
+                                            }
+                                            // Seçmeli Ders (String Değer) - Activity İsmi
+                                            // FIX: Yanında Duration (Süre) varsa onu da göster
+                                            if (typeof dayData[key] === 'string' && !key.endsWith('Duration')) {
+                                                const label = safeCurriculum.find(i => i.id === key)?.customLabel || SUBJECT_METADATA[key]?.label || key;
+                                                const duration = dayData[key + 'Duration'];
+                                                return <span key={key} className="bg-purple-50 text-purple-700 px-1 rounded flex items-center"><CheckCircle2 className="w-3 h-3 mr-1"/>{label}: {dayData[key]} {duration ? `(${duration} dk)` : ''}</span>
                                             }
                                             return null;
                                         })}
@@ -682,6 +747,44 @@ function DayEditModal({ day, curriculum, initialData, onClose, onSave }) {
                 const meta = getSubjectInfo(item);
                 const key = item.id;
 
+                // TİP 1: SEÇMELİ DERS (DROPDOWN + SÜRE INPUT)
+                if (meta.type === 'selection') {
+                    return (
+                        <div key={idx} className={`p-3 rounded-xl border ${form[key] ? 'bg-purple-50 border-purple-200' : 'border-slate-100'}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className={`w-5 h-5 rounded border flex items-center justify-center ${form[key] ? 'bg-purple-500 border-purple-500' : 'bg-white'}`}>{form[key] && <CheckCircle2 className="w-3 h-3 text-white"/>}</div>
+                                <span className="text-sm font-bold text-slate-700">{meta.label}</span>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <select 
+                                    className="w-full p-2 border rounded-lg text-sm bg-white outline-none" 
+                                    value={form[key] || ""} 
+                                    onChange={(e) => handleChange(key, e.target.value)}
+                                >
+                                    <option value="">Bugün ne çalıştın?</option>
+                                    {meta.options.map(opt => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                </select>
+                                {/* SÜRE GİRİŞ ALANI EKLENDİ */}
+                                {form[key] && (
+                                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
+                                        <Clock className="w-4 h-4 text-slate-400" />
+                                        <input 
+                                            type="number" 
+                                            className="flex-1 p-2 border rounded-lg text-sm outline-none" 
+                                            placeholder="Kaç dakika?" 
+                                            value={form[key + 'Duration'] || ''}
+                                            onChange={(e) => handleChange(key + 'Duration', e.target.value)}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                }
+
+                // TİP 2: SÜRE / ONAY KUTUSU
                 if (meta.type === 'duration') {
                     return (
                         <div key={idx} onClick={() => setForm(p => ({...p, [key]: !p[key]}))} className={`flex items-center gap-3 p-3 rounded-xl border ${form[key] ? 'bg-green-50 border-green-200' : 'border-slate-100'}`}>
@@ -693,6 +796,8 @@ function DayEditModal({ day, curriculum, initialData, onClose, onSave }) {
                         </div>
                     );
                 }
+
+                // TİP 3: SORU GİRİŞİ (STANDART)
                 return (
                     <div key={idx} className={`p-3 rounded-xl border bg-${meta.color}-50 border-${meta.color}-100`}>
                         <div className="flex justify-between items-center mb-2">
