@@ -22,12 +22,12 @@ const firebaseConfig = {
 };
 
 // --- AYARLAR ---
-const APP_ID = "kamp-takip-yonetici-v1"; // Versiyon güncellendi
+const APP_ID = "kamp-takip-yonetici-v2"; // Versiyon güncellendi
 const TEACHER_PASS = "1876"; 
 const TOTAL_DAYS = 15;
 const DAYS_ARRAY = Array.from({ length: TOTAL_DAYS }, (_, i) => i + 1);
 
-// Varsayılan Müfredat (Veritabanı boşsa bu kullanılır)
+// Varsayılan Müfredat
 const DEFAULT_CURRICULUM = {
   1: [{ id: 'mat', target: 5 }, { id: 'tr', target: 5 }, { id: 'hayat', target: 5 }, { id: 'kitap', target: 20 }],
   2: [{ id: 'mat', target: 10 }, { id: 'tr', target: 10 }, { id: 'hayat', target: 10 }, { id: 'kitap', target: 20 }],
@@ -39,7 +39,7 @@ const DEFAULT_CURRICULUM = {
   8: [{ id: 'mat', target: 60 }, { id: 'tr', target: 60 }, { id: 'fen', target: 40 }, { id: 'inkilap', target: 25 }, { id: 'fenTekrar', target: 30 }]
 };
 
-// Ders Tanımları (İkonlar ve Renkler)
+// Ders Tanımları
 const SUBJECT_METADATA = {
   mat: { label: "Matematik", icon: Calculator, color: "blue", type: "question" },
   tr: { label: "Türkçe", icon: BookOpen, color: "red", type: "question" },
@@ -84,7 +84,7 @@ export default function App() {
   const [studentGrade, setStudentGrade] = useState('');
   const [loading, setLoading] = useState(true);
   const [showInstallModal, setShowInstallModal] = useState(false);
-  const [curriculum, setCurriculum] = useState(DEFAULT_CURRICULUM); // Dinamik Müfredat State'i
+  const [curriculum, setCurriculum] = useState(DEFAULT_CURRICULUM);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -100,7 +100,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Müfredatı Veritabanından Çek
   useEffect(() => {
     if (!user) return;
     const docRef = doc(db, 'artifacts', APP_ID, 'settings', 'curriculum');
@@ -108,7 +107,6 @@ export default function App() {
         if (snap.exists()) {
             setCurriculum(snap.data());
         } else {
-            // İlk kez çalışıyorsa varsayılanı kaydet
             setDoc(docRef, DEFAULT_CURRICULUM).catch(e => console.error(e));
         }
     });
@@ -426,7 +424,7 @@ function TeacherApp({ user, curriculum }) {
                 <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
                 <input type="text" placeholder="Öğrenci ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-800 outline-none" />
             </div>
-            {filteredStudents.map(std => <StudentDetailRow key={std.id} student={std} onDelete={deleteStudent} curriculum={curriculum[std.grade]} />)}
+            {filteredStudents.map(std => <StudentDetailRow key={std.id} student={std} onDelete={deleteStudent} />)}
         </div>
     )
 }
@@ -514,7 +512,7 @@ function ProgramEditorModal({ curriculum, onClose }) {
     );
 }
 
-function StudentDetailRow({ student, onDelete, curriculum }) {
+function StudentDetailRow({ student, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const [msg, setMsg] = useState(student.teacherMessage || '');
   const completed = Object.keys(student.days || {}).length;
@@ -525,6 +523,19 @@ function StudentDetailRow({ student, onDelete, curriculum }) {
     await setDoc(docRef, { teacherMessage: msg }, { merge: true });
     alert('Mesaj gönderildi.');
   };
+
+  // Dinamik İstatistik Hesaplama
+  const stats = {};
+  Object.values(student.days || {}).forEach(day => {
+      Object.keys(day).forEach(key => {
+          if(key.endsWith('True') || key.endsWith('False')) {
+              const subj = key.replace('True', '').replace('False', '');
+              if(!stats[subj]) stats[subj] = { t: 0, f: 0 };
+              if(key.endsWith('True')) stats[subj].t += parseInt(day[key]||0);
+              else stats[subj].f += parseInt(day[key]||0);
+          }
+      });
+  });
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition">
@@ -543,10 +554,23 @@ function StudentDetailRow({ student, onDelete, curriculum }) {
         </div>
         {expanded && (
             <div className="bg-slate-50 p-4 border-t border-slate-100 space-y-4">
-                <div className="text-xs text-slate-500">
-                    <strong className="block mb-2">Performans Özeti (Son Gün):</strong>
-                    {/* Basit özet - geliştirilebilir */}
-                    Öğrenci aktif olarak soru çözüyor. Detaylar için veritabanı incelenebilir.
+                <div className="bg-white p-3 rounded-lg border border-slate-200">
+                    <h5 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center"><TrendingUp className="w-3 h-3 mr-1"/> Toplam İstatistik</h5>
+                    <div className="grid grid-cols-2 gap-2">
+                        {Object.keys(stats).map(subj => {
+                            const meta = SUBJECT_METADATA[subj] || { label: subj };
+                            return (
+                                <div key={subj} className="bg-slate-50 p-2 rounded text-xs flex justify-between items-center">
+                                    <span className="font-bold text-slate-700">{meta.label}</span>
+                                    <div>
+                                        <span className="text-green-600 font-bold mr-2">{stats[subj].t} D</span>
+                                        <span className="text-red-500 font-bold">{stats[subj].f} Y</span>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                        {Object.keys(stats).length === 0 && <span className="text-xs text-slate-400 italic">Henüz veri girilmemiş.</span>}
+                    </div>
                 </div>
                 <div>
                     <div className="flex gap-2 mb-2"><input className="flex-1 text-sm p-2 border rounded-lg outline-none" placeholder="Öğrenciye not..." value={msg} onChange={e=>setMsg(e.target.value)} /></div>
