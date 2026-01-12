@@ -352,4 +352,384 @@ function HomeView({ data, grade, studentName, curriculum }) {
                 <Lightbulb className="w-6 h-6 text-emerald-600 flex-shrink-0 mt-1"/>
                 <div>
                     <h4 className="text-xs font-bold text-emerald-800 uppercase mb-1">Öğretmenin Diyor Ki:</h4>
-                    <p c
+                    <p className="text-sm text-emerald-900 font-medium leading-tight">"{advice}"</p>
+                </div>
+            </div>
+
+            {data.teacherMessage && (
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 shadow-sm flex gap-3">
+                    <MessageSquare className="w-5 h-5 text-blue-600 flex-shrink-0 mt-1" />
+                    <div><h4 className="text-xs font-bold text-blue-800 uppercase mb-1">Öğretmeninden Not</h4><p className="text-sm text-blue-900">{data.teacherMessage}</p></div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function CalendarView({ data, onDayClick }) {
+    return (
+        <div className="pb-16 animate-in slide-in-from-bottom-4 duration-500">
+            <h3 className="font-bold text-slate-800 text-lg mb-4 flex items-center"><Calendar className="w-5 h-5 mr-2 text-indigo-600" />Takvimim</h3>
+            <div className="grid grid-cols-3 gap-3">
+                {DAYS_ARRAY.map(day => {
+                    const isDone = !!data.days?.[day];
+                    return (
+                        <button key={day} onClick={() => onDayClick(day)} className={`p-3 rounded-xl border-2 text-left transition transform active:scale-95 ${isDone ? 'bg-indigo-50 border-indigo-500 shadow-sm' : 'bg-white border-slate-100 hover:border-indigo-200'}`}>
+                            <span className={`text-sm font-bold block ${isDone ? 'text-indigo-700' : 'text-slate-400'}`}>{day}. Gün</span>
+                            <div className="mt-2 flex justify-end">{isDone ? <CheckCircle2 className="w-4 h-4 text-indigo-600"/> : <div className="w-4 h-4 rounded-full border-2 border-slate-200"></div>}</div>
+                        </button>
+                    )
+                })}
+            </div>
+        </div>
+    );
+}
+
+// --- TEACHER APP ---
+function TeacherApp({ user, curriculum }) {
+    const [students, setStudents] = useState([]);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [isEditingProgram, setIsEditingProgram] = useState(false);
+
+    useEffect(() => {
+        if(!user) return;
+        const colRef = collection(db, 'artifacts', APP_ID, 'public_data');
+        onSnapshot(colRef, (snap) => {
+            const list = snap.docs.map(d => ({id: d.id, ...d.data()}));
+            list.sort((a,b) => (parseInt(a.grade)||0) - (parseInt(b.grade)||0) || a.name.localeCompare(b.name));
+            setStudents(list);
+        });
+    }, [user]);
+
+    const deleteStudent = async (studentId) => {
+        if(window.confirm('Bu öğrenciyi silmek istediğinize emin misiniz?')) {
+            await deleteDoc(doc(db, 'artifacts', APP_ID, 'public_data', studentId));
+        }
+    };
+
+    const filteredStudents = students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const totalStudents = students.length;
+    const activeToday = students.filter(s => s.lastUpdated && new Date(s.lastUpdated.seconds * 1000).toDateString() === new Date().toDateString()).length;
+
+    if (isEditingProgram) {
+        return <ProgramEditorModal curriculum={curriculum} onClose={() => setIsEditingProgram(false)} />;
+    }
+
+    return (
+        <div className="p-4 pb-20 space-y-4">
+            <div className="bg-slate-800 text-white p-6 rounded-2xl shadow-lg">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <h2 className="font-bold text-xl mb-1">Öğretmen Paneli</h2>
+                        <div className="flex gap-4 mt-2 text-sm">
+                            <div><span className="block text-xl font-bold">{totalStudents}</span><span className="text-slate-400 text-xs">Toplam</span></div>
+                            <div><span className="block text-xl font-bold text-green-400">{activeToday}</span><span className="text-slate-400 text-xs">Aktif</span></div>
+                        </div>
+                    </div>
+                    <button onClick={() => setIsEditingProgram(true)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center transition">
+                        <Settings className="w-4 h-4 mr-2" /> Programı Düzenle
+                    </button>
+                </div>
+            </div>
+            
+            <div className="relative">
+                <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
+                <input type="text" placeholder="Öğrenci ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-800 outline-none" />
+            </div>
+            {filteredStudents.map(std => <StudentDetailRow key={std.id} student={std} onDelete={deleteStudent} curriculum={curriculum[std.grade] || DEFAULT_CURRICULUM[7]} />)}
+        </div>
+    )
+}
+
+function ProgramEditorModal({ curriculum, onClose }) {
+    const [selectedGrade, setSelectedGrade] = useState("7");
+    const [localCurriculum, setLocalCurriculum] = useState(curriculum);
+    const [newItem, setNewItem] = useState({ id: 'mat', target: 50, customLabel: '' });
+
+    const handleAddItem = () => {
+        setLocalCurriculum(prev => ({
+            ...prev,
+            [selectedGrade]: [...(prev[selectedGrade] || []), newItem]
+        }));
+        setNewItem({ id: 'mat', target: 50, customLabel: '' }); // Sıfırla
+    };
+
+    const handleRemoveItem = (index) => {
+        setLocalCurriculum(prev => {
+            const newList = [...prev[selectedGrade]];
+            newList.splice(index, 1);
+            return { ...prev, [selectedGrade]: newList };
+        });
+    };
+
+    const handleSave = async () => {
+        const docRef = doc(db, 'artifacts', APP_ID, 'settings', 'curriculum');
+        await setDoc(docRef, localCurriculum);
+        alert('Program güncellendi!');
+        onClose();
+    };
+
+    const currentList = localCurriculum[selectedGrade] || [];
+
+    return (
+        <div className="p-4 bg-slate-50 min-h-full">
+            <button onClick={onClose} className="mb-4 text-slate-500 flex items-center text-sm font-bold"><ChevronDown className="rotate-90 mr-1 w-4 h-4"/> Geri Dön</button>
+            <h2 className="text-xl font-bold text-slate-800 mb-4">Program Düzenleyici</h2>
+            
+            <div className="bg-white p-4 rounded-xl shadow-sm mb-4">
+                <label className="text-xs font-bold text-slate-500 uppercase">Sınıf Seç</label>
+                <div className="flex gap-2 mt-2 overflow-x-auto pb-2">
+                    {[1,2,3,4,5,6,7,8].map(g => (
+                        <button key={g} onClick={() => setSelectedGrade(g.toString())} className={`px-4 py-2 rounded-lg font-bold border shrink-0 ${selectedGrade === g.toString() ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600'}`}>
+                            {g}. Sınıf
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl shadow-sm mb-4">
+                <h3 className="text-sm font-bold text-slate-700 mb-3">Ders Ekle</h3>
+                <div className="flex flex-col gap-3">
+                    <div className="flex gap-2">
+                        <select className="flex-1 p-2 border rounded-lg text-sm bg-white" value={newItem.id} onChange={e => setNewItem({...newItem, id: e.target.value})}>
+                            {Object.keys(SUBJECT_METADATA).map(key => (
+                                <option key={key} value={key}>{SUBJECT_METADATA[key].label}</option>
+                            ))}
+                        </select>
+                        <input type="number" className="w-20 p-2 border rounded-lg text-sm" placeholder="Hedef" value={newItem.target} onChange={e => setNewItem({...newItem, target: parseInt(e.target.value)})} />
+                    </div>
+                    {/* ÖZEL İSİM GİRME ALANI */}
+                    <div className="flex items-center gap-2">
+                        <Edit3 className="w-4 h-4 text-slate-400" />
+                        <input 
+                            type="text" 
+                            className="flex-1 p-2 border rounded-lg text-sm" 
+                            placeholder="Özel Ders İsmi (İsteğe Bağlı)" 
+                            value={newItem.customLabel} 
+                            onChange={e => setNewItem({...newItem, customLabel: e.target.value})} 
+                        />
+                    </div>
+                    <button onClick={handleAddItem} className="w-full bg-green-500 text-white py-2 rounded-lg font-bold text-sm flex items-center justify-center"><Plus className="w-4 h-4 mr-2"/> Listeye Ekle</button>
+                </div>
+            </div>
+
+            <div className="space-y-2 mb-20">
+                {currentList.map((item, idx) => {
+                    const meta = getSubjectInfo(item);
+                    return (
+                        <div key={idx} className="bg-white p-3 rounded-lg border border-slate-200 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                {meta.icon && <div className={`p-2 bg-${meta.color}-50 rounded-lg`}><meta.icon className={`w-5 h-5 text-${meta.color}-600`}/></div>}
+                                <div>
+                                    <div className="font-bold text-slate-700 text-sm">{meta.label}</div>
+                                    <div className="text-xs text-slate-500">Hedef: {item.target} {meta.type === 'duration' ? 'dk' : 'soru'}</div>
+                                </div>
+                            </div>
+                            <button onClick={() => handleRemoveItem(idx)} className="text-red-400 hover:text-red-600 p-2"><Trash2 className="w-4 h-4"/></button>
+                        </div>
+                    )
+                })}
+            </div>
+
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t">
+                <button onClick={handleSave} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold flex items-center justify-center shadow-lg"><Save className="w-5 h-5 mr-2"/> Kaydet ve Yayınla</button>
+            </div>
+        </div>
+    );
+}
+
+function StudentDetailRow({ student, onDelete, curriculum }) {
+  const [expanded, setExpanded] = useState(false);
+  const [msg, setMsg] = useState(student.teacherMessage || '');
+  const completed = Object.keys(student.days || {}).length;
+  const pct = Math.round((completed / TOTAL_DAYS) * 100);
+
+  const sendFeedback = async () => {
+    const docRef = doc(db, 'artifacts', APP_ID, 'public_data', student.id);
+    await setDoc(docRef, { teacherMessage: msg }, { merge: true });
+    alert('Mesaj gönderildi.');
+  };
+
+  // Dinamik İstatistik Hesaplama (Toplamlar)
+  const stats = {};
+  const safeCurriculum = curriculum || [];
+  safeCurriculum.forEach(item => {
+      stats[item.id] = { 
+          id: item.id, 
+          label: item.customLabel || SUBJECT_METADATA[item.id]?.label || item.id,
+          type: SUBJECT_METADATA[item.id]?.type || 'question', 
+          correct: 0, 
+          wrong: 0, 
+          doneCount: 0 
+      };
+  });
+
+  Object.values(student.days || {}).forEach(day => {
+      Object.keys(day).forEach(key => {
+          if(key.endsWith('True')) {
+              const subj = key.replace('True', '');
+              if(stats[subj]) stats[subj].correct += parseInt(day[key]||0);
+          }
+          else if(key.endsWith('False')) {
+              const subj = key.replace('False', '');
+              if(stats[subj]) stats[subj].wrong += parseInt(day[key]||0);
+          }
+          else if (day[key] === true && stats[key]) {
+              stats[key].doneCount += 1;
+          }
+      });
+  });
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition">
+        <div className="p-4 flex justify-between items-center cursor-pointer" onClick={() => setExpanded(!expanded)}>
+            <div className="flex items-center gap-3 w-full">
+                <div className="bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center font-bold text-slate-600 flex-shrink-0">{student.grade}</div>
+                <div className="flex-1">
+                    <div className="flex justify-between">
+                        <h4 className="font-bold text-sm text-slate-800">{student.name}</h4>
+                        <span className="text-xs font-bold text-slate-500">%{pct}</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1"><div className={`h-1.5 rounded-full ${pct === 100 ? 'bg-green-500' : 'bg-indigo-500'}`} style={{ width: `${pct}%` }}></div></div>
+                </div>
+            </div>
+            {expanded ? <ChevronUp className="text-slate-400 w-5 h-5 ml-3"/> : <ChevronDown className="text-slate-400 w-5 h-5 ml-3"/>}
+        </div>
+        {expanded && (
+            <div className="bg-slate-50 p-4 border-t border-slate-100 space-y-4">
+                
+                {/* 1. KART: TOPLAM İSTATİSTİKLER */}
+                <div className="bg-white p-3 rounded-lg border border-slate-200">
+                    <h5 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center"><Activity className="w-3 h-3 mr-1"/> Toplam İstatistikler</h5>
+                    <div className="grid grid-cols-2 gap-2">
+                        {Object.values(stats).map(stat => {
+                            const meta = SUBJECT_METADATA[stat.id] || { label: stat.id, color: 'gray' };
+                            return (
+                                <div key={stat.id} className="bg-slate-50 p-2 rounded flex justify-between items-center border border-slate-100">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-2 h-2 rounded-full bg-${meta.color}-500`}></div>
+                                        <span className="font-bold text-xs text-slate-700">{stat.label}</span>
+                                    </div>
+                                    <div className="text-xs font-bold">
+                                        {stat.type === 'duration' ? (
+                                            <span className="text-indigo-600">{stat.doneCount} Gün</span>
+                                        ) : (
+                                            <>
+                                                <span className="text-green-600 mr-2">{stat.correct} D</span>
+                                                <span className="text-red-500">{stat.wrong} Y</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+
+                {/* 2. KART: GÜNLÜK DETAYLI DÖKÜM */}
+                <div className="bg-white p-3 rounded-lg border border-slate-200 max-h-60 overflow-y-auto">
+                    <h5 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center"><History className="w-3 h-3 mr-1"/> Geçmiş Günler</h5>
+                    <div className="space-y-2">
+                        {DAYS_ARRAY.map(day => {
+                            const dayData = student.days?.[day];
+                            if (!dayData) return null; // Veri girilmemişse gösterme
+                            return (
+                                <div key={day} className="text-xs border-b border-slate-100 last:border-0 pb-2 mb-2">
+                                    <div className="font-bold text-indigo-600 mb-1">{day}. Gün Özeti:</div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {Object.keys(dayData).map(key => {
+                                            if (key.endsWith('True')) {
+                                                const subj = key.replace('True', '');
+                                                const label = safeCurriculum.find(i => i.id === subj)?.customLabel || SUBJECT_METADATA[subj]?.label || subj;
+                                                return <span key={key} className="bg-slate-50 px-1 rounded">{label}: {dayData[key]}D {dayData[key.replace('True', 'False')]}Y</span>
+                                            }
+                                            if (dayData[key] === true && !key.endsWith('False')) {
+                                                 const label = safeCurriculum.find(i => i.id === key)?.customLabel || SUBJECT_METADATA[key]?.label || key;
+                                                 return <span key={key} className="bg-green-50 text-green-700 px-1 rounded flex items-center"><CheckCircle2 className="w-3 h-3 mr-1"/>{label}</span>
+                                            }
+                                            return null;
+                                        })}
+                                    </div>
+                                </div>
+                            )
+                        })}
+                        {Object.keys(student.days || {}).length === 0 && <div className="text-xs text-slate-400 italic text-center py-2">Henüz veri girişi yapılmamış.</div>}
+                    </div>
+                </div>
+
+                <div>
+                    <div className="flex gap-2 mb-2"><input className="flex-1 text-sm p-2 border rounded-lg outline-none focus:border-slate-400" placeholder="Öğrenciye not..." value={msg} onChange={e=>setMsg(e.target.value)} /></div>
+                    <button onClick={sendFeedback} className="w-full bg-slate-800 text-white text-sm py-2 rounded-lg font-bold hover:bg-slate-700 transition">Not Gönder</button>
+                </div>
+                <button onClick={() => onDelete(student.id)} className="w-full text-red-500 text-xs font-bold py-2 border border-red-200 rounded-lg hover:bg-red-50 transition">Öğrenciyi Sil</button>
+            </div>
+        )}
+    </div>
+  )
+}
+
+function DayEditModal({ day, curriculum, initialData, onClose, onSave }) {
+  const [form, setForm] = useState(initialData || {});
+  const handleChange = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const safeCurriculum = curriculum || [];
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 animate-in zoom-in-95 duration-200">
+      <div className="bg-white w-full max-w-sm rounded-2xl overflow-hidden flex flex-col max-h-[85vh]">
+        <div className="bg-indigo-600 p-4 text-white flex justify-between items-center"><h3 className="font-bold">{day}. Gün Girişi</h3><button onClick={onClose}><X className="w-6 h-6" /></button></div>
+        <div className="overflow-y-auto p-4 space-y-4">
+            {safeCurriculum.map((item, idx) => {
+                const meta = getSubjectInfo(item);
+                const key = item.id;
+
+                if (meta.type === 'duration') {
+                    return (
+                        <div key={idx} onClick={() => setForm(p => ({...p, [key]: !p[key]}))} className={`flex items-center gap-3 p-3 rounded-xl border ${form[key] ? 'bg-green-50 border-green-200' : 'border-slate-100'}`}>
+                            <div className={`w-5 h-5 rounded border flex items-center justify-center ${form[key] ? 'bg-green-500 border-green-500' : 'bg-white'}`}>{form[key] && <CheckCircle2 className="w-3 h-3 text-white"/>}</div>
+                            <div>
+                                <span className="text-sm font-bold text-slate-700 block">{meta.label}</span>
+                                <span className="text-xs text-slate-400">Hedef: {item.target} dk</span>
+                            </div>
+                        </div>
+                    );
+                }
+                return (
+                    <div key={idx} className={`p-3 rounded-xl border bg-${meta.color}-50 border-${meta.color}-100`}>
+                        <div className="flex justify-between items-center mb-2">
+                             <div className={`flex items-center font-bold text-${meta.color}-800 text-xs`}><meta.icon className="w-3 h-3 mr-1" /> {meta.label}</div>
+                             <span className="text-[10px] bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-500 font-bold">Hedef: {item.target}</span>
+                        </div>
+                        <div className="flex gap-2">
+                            <input type="tel" placeholder="D" className="flex-1 p-2 rounded border text-center text-sm font-bold outline-none focus:ring-2" value={form[key+'True']||''} onChange={e=>handleChange(key+'True',e.target.value)} />
+                            <input type="tel" placeholder="Y" className="flex-1 p-2 rounded border text-center text-sm font-bold outline-none focus:ring-2" value={form[key+'False']||''} onChange={e=>handleChange(key+'False',e.target.value)} />
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+        <div className="p-4 border-t bg-slate-50"><button onClick={() => onSave(day, form)} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition">Kaydet</button></div>
+      </div>
+    </div>
+  );
+}
+
+function InstallGuideModal({ onClose }) {
+    return (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center">
+            <div className="bg-white w-full max-w-md p-6 rounded-t-2xl sm:rounded-2xl relative">
+                <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-slate-100 rounded-full"><X className="w-5 h-5 text-slate-600" /></button>
+                <div className="text-center mb-6">
+                    <div className="bg-indigo-100 w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4"><Phone className="w-8 h-8 text-indigo-600" /></div>
+                    <h3 className="text-xl font-bold text-slate-800">Uygulamayı İndir</h3>
+                    <p className="text-slate-500 text-sm mt-2">Bu programı bir uygulama gibi kullanmak için:</p>
+                </div>
+                <div className="space-y-4">
+                    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100"><div className="text-2xl">🍎</div><div><h4 className="font-bold text-slate-700 text-xs">iPhone:</h4><p className="text-xs text-slate-600">Paylaş <Share className="w-3 h-3 inline"/> {'>'} Ana Ekrana Ekle</p></div></div>
+                    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100"><div className="text-2xl">🤖</div><div><h4 className="font-bold text-slate-700 text-xs">Android:</h4><p className="text-xs text-slate-600">3 nokta <MoreVertical className="w-3 h-3 inline"/> {'>'} Uygulamayı Yükle</p></div></div>
+                </div>
+                <button onClick={onClose} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl mt-6">Tamam</button>
+            </div>
+        </div>
+    );
+}
+
