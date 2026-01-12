@@ -4,14 +4,14 @@ import {
   Download, LogOut, User, Calendar, Home, Star, MessageSquare, 
   ChevronUp, ChevronDown, X, Share, MoreVertical, Phone, AlertTriangle, 
   RefreshCcw, LockKeyhole, GraduationCap, Lightbulb, Trophy, Flame, 
-  Target, Zap, Search, Award, Loader2
+  Target, Zap, Search, Award, Loader2, Trash2, TrendingUp
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
-// --- 1. FIREBASE AYARLARI (Sizin Verdiğiniz Bilgiler) ---
+// --- 1. FIREBASE AYARLARI ---
 const firebaseConfig = {
   apiKey: "AIzaSyAeyolB3EGrsOiNwdS971zF8DqCZ4ZPlAQ",
   authDomain: "kamp-takip-sistemi.firebaseapp.com",
@@ -22,7 +22,7 @@ const firebaseConfig = {
 };
 
 // --- AYARLAR ---
-const APP_ID = "kamp-takip-final-v8"; // Temiz başlangıç için versiyon 8
+const APP_ID = "kamp-takip-final-v8"; 
 const TEACHER_PASS = "1876"; 
 const TOTAL_DAYS = 15;
 const DAYS_ARRAY = Array.from({ length: TOTAL_DAYS }, (_, i) => i + 1);
@@ -35,16 +35,16 @@ const ADVICE_POOL = {
   general: ["Harika gidiyorsun! Mola vermeyi ve su içmeyi unutma. 💧", "Bugünkü çaban yarınki başarının anahtarıdır. 🗝️"]
 };
 
-// Müfredat
+// Müfredat (HEDEFLER BURADA)
 const CURRICULUM = {
-  1: { mat: 10, tr: 10, hayat: 10, kitap: true },
-  2: { mat: 15, tr: 15, hayat: 10, kitap: true },
-  3: { mat: 15, tr: 10, hayat: 10, kitap: true },
-  4: { mat: 20, tr: 20, fen: 10, sos: 10, kitap: true },
-  5: { mat: 30, tr: 30, fen: 20, sos: 20, fenTekrar: true },
-  6: { mat: 40, tr: 40, fen: 30, fenTekrar: true },
-  7: { mat: 50, tr: 50, fen: 30, fenTekrar: true },
-  8: { mat: 60, tr: 60, fen: 40, inkilap: 20, fenTekrar: true }
+  1: { mat: 5, tr: 5, hayat: 5, kitap: true }, // Başlangıç düzeyi
+  2: { mat: 10, tr: 10, hayat: 10, kitap: true }, // Biraz artırılmış
+  3: { mat: 15, tr: 10, hayat: 10, kitap: true }, // İsteğe özel
+  4: { mat: 20, tr: 20, fen: 15, sos: 15, kitap: true }, // Ortaokula geçiş öncesi
+  5: { mat: 30, tr: 30, fen: 20, sos: 20, kitap: true }, // Ortaokul başlangıç
+  6: { mat: 40, tr: 40, fen: 30, fenTekrar: true }, // İsteğe özel
+  7: { mat: 50, tr: 50, fen: 30, fenTekrar: true }, // İsteğe özel
+  8: { mat: 60, tr: 60, fen: 40, inkilap: 25, fenTekrar: true } // LGS Hazırlık
 };
 
 const FIELD_METADATA = {
@@ -193,14 +193,14 @@ function StudentApp({ user, studentName, grade }) {
   const [activeTab, setActiveTab] = useState('home');
   const [data, setData] = useState(null); 
   const [selectedDay, setSelectedDay] = useState(null);
-  
+   
   const docId = generateStudentId(studentName, grade);
   const myCurriculum = CURRICULUM[grade] || CURRICULUM[7];
 
   useEffect(() => {
     if (!user) return;
     
-    // ZAMAN AŞIMI KORUMASI: 5 saniye içinde veri gelmezse, bekleme, boş veriyle aç.
+    // ZAMAN AŞIMI KORUMASI
     const timeout = setTimeout(() => {
         if (!data) {
             console.log("Zaman aşımı, yerel veriyle açılıyor.");
@@ -297,8 +297,11 @@ function HomeView({ data, grade, studentName }) {
         if (lastDay) {
             const matWrong = parseInt(lastDay.matFalse) || 0;
             const trWrong = parseInt(lastDay.trFalse) || 0;
+            const fenWrong = parseInt(lastDay.fenFalse) || 0;
+
             if (matWrong > 8) setAdvice(ADVICE_POOL.math[Math.floor(Math.random()*ADVICE_POOL.math.length)]);
             else if (trWrong > 8) setAdvice(ADVICE_POOL.turkish[Math.floor(Math.random()*ADVICE_POOL.turkish.length)]);
+            else if (fenWrong > 8) setAdvice(ADVICE_POOL.science[Math.floor(Math.random()*ADVICE_POOL.science.length)]);
             else setAdvice(ADVICE_POOL.general[Math.floor(Math.random()*ADVICE_POOL.general.length)]);
         } else {
             setAdvice("Maceraya başlamak için 'Program' sekmesine gidip 1. Günü seç! 👋");
@@ -409,6 +412,16 @@ function TeacherApp({ user }) {
         });
     }, [user]);
 
+    const deleteStudent = async (studentId) => {
+        if(window.confirm('Bu öğrenciyi ve tüm verilerini silmek istediğinize emin misiniz? Bu işlem geri alınamaz!')) {
+            try {
+                await deleteDoc(doc(db, 'artifacts', APP_ID, 'public_data', studentId));
+            } catch (error) {
+                alert("Silme işlemi sırasında hata oluştu.");
+            }
+        }
+    };
+
     const filteredStudents = students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
     const totalStudents = students.length;
     const activeToday = students.filter(s => s.lastUpdated && new Date(s.lastUpdated.seconds * 1000).toDateString() === new Date().toDateString()).length;
@@ -426,12 +439,12 @@ function TeacherApp({ user }) {
                 <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
                 <input type="text" placeholder="Öğrenci ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-800 outline-none" />
             </div>
-            {filteredStudents.map(std => <StudentDetailRow key={std.id} student={std} />)}
+            {filteredStudents.map(std => <StudentDetailRow key={std.id} student={std} onDelete={deleteStudent} />)}
         </div>
     )
 }
 
-function StudentDetailRow({ student }) {
+function StudentDetailRow({ student, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const [msg, setMsg] = useState(student.teacherMessage || '');
   const completed = Object.keys(student.days || {}).length;
@@ -442,6 +455,17 @@ function StudentDetailRow({ student }) {
     await setDoc(docRef, { teacherMessage: msg }, { merge: true });
     alert('Mesaj öğrenciye iletildi.');
   };
+
+  // İstatistikleri Hesapla
+  const stats = { matT: 0, matF: 0, trT: 0, trF: 0, fenT: 0, fenF: 0 };
+  Object.values(student.days || {}).forEach(day => {
+    stats.matT += parseInt(day.matTrue || 0);
+    stats.matF += parseInt(day.matFalse || 0);
+    stats.trT += parseInt(day.trTrue || 0);
+    stats.trF += parseInt(day.trFalse || 0);
+    stats.fenT += parseInt(day.fenTrue || 0);
+    stats.fenF += parseInt(day.fenFalse || 0);
+  });
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition">
@@ -459,10 +483,41 @@ function StudentDetailRow({ student }) {
             {expanded ? <ChevronUp className="text-slate-400 w-5 h-5 ml-3"/> : <ChevronDown className="text-slate-400 w-5 h-5 ml-3"/>}
         </div>
         {expanded && (
-            <div className="bg-slate-50 p-4 border-t border-slate-100">
-                <p className="text-xs text-slate-500 mb-2 font-bold uppercase">Öğrenciye Not Gönder:</p>
-                <div className="flex gap-2 mb-2"><input className="flex-1 text-sm p-2 border rounded-lg outline-none focus:border-slate-400" placeholder="Örn: Harika gidiyorsun!" value={msg} onChange={e=>setMsg(e.target.value)} /></div>
-                <button onClick={sendFeedback} className="w-full bg-slate-800 hover:bg-slate-700 text-white text-sm py-2 rounded-lg font-bold transition">Gönder</button>
+            <div className="bg-slate-50 p-4 border-t border-slate-100 space-y-4">
+                {/* Detaylı İstatistik Tablosu */}
+                <div className="bg-white p-3 rounded-lg border border-slate-200">
+                    <h5 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center"><TrendingUp className="w-3 h-3 mr-1"/> Performans Özeti</h5>
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="bg-blue-50 p-2 rounded">
+                            <div className="font-bold text-blue-700">Matematik</div>
+                            <div className="text-green-600">{stats.matT} D</div>
+                            <div className="text-red-500">{stats.matF} Y</div>
+                        </div>
+                        <div className="bg-red-50 p-2 rounded">
+                            <div className="font-bold text-red-700">Türkçe</div>
+                            <div className="text-green-600">{stats.trT} D</div>
+                            <div className="text-red-500">{stats.trF} Y</div>
+                        </div>
+                        <div className="bg-green-50 p-2 rounded">
+                            <div className="font-bold text-green-700">Fen</div>
+                            <div className="text-green-600">{stats.fenT} D</div>
+                            <div className="text-red-500">{stats.fenF} Y</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <p className="text-xs text-slate-500 mb-2 font-bold uppercase">Öğrenciye Not Gönder:</p>
+                    <div className="flex gap-2 mb-2"><input className="flex-1 text-sm p-2 border rounded-lg outline-none focus:border-slate-400" placeholder="Örn: Harika gidiyorsun!" value={msg} onChange={e=>setMsg(e.target.value)} /></div>
+                    <button onClick={sendFeedback} className="w-full bg-slate-800 hover:bg-slate-700 text-white text-sm py-2 rounded-lg font-bold transition">Gönder</button>
+                </div>
+
+                {/* Silme Butonu */}
+                <div className="pt-2 border-t border-slate-200">
+                    <button onClick={() => onDelete(student.id)} className="w-full flex items-center justify-center text-red-500 hover:bg-red-50 p-2 rounded-lg text-xs font-bold transition">
+                        <Trash2 className="w-4 h-4 mr-1" /> Öğrenciyi Sil
+                    </button>
+                </div>
             </div>
         )}
     </div>
@@ -472,7 +527,7 @@ function StudentDetailRow({ student }) {
 function DayEditModal({ day, grade, curriculum, initialData, onClose, onSave }) {
   const [form, setForm] = useState(initialData || {});
   const handleChange = (k, v) => setForm(p => ({ ...p, [k]: v }));
-  
+   
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 animate-in zoom-in-95 duration-200">
       <div className="bg-white w-full max-w-sm rounded-2xl overflow-hidden flex flex-col max-h-[85vh]">
@@ -480,6 +535,8 @@ function DayEditModal({ day, grade, curriculum, initialData, onClose, onSave }) 
         <div className="overflow-y-auto p-4 space-y-4">
             {Object.keys(curriculum).map(key => {
                 const meta = FIELD_METADATA[key];
+                const target = curriculum[key]; // Hedef Sayısı
+
                 if (meta.type === 'checkbox') {
                     return (
                         <div key={key} onClick={() => setForm(p => ({...p, [key]: !p[key]}))} className={`flex items-center gap-3 p-3 rounded-xl border ${form[key] ? 'bg-green-50 border-green-200' : 'border-slate-100'}`}>
@@ -490,7 +547,11 @@ function DayEditModal({ day, grade, curriculum, initialData, onClose, onSave }) 
                 }
                 return (
                     <div key={key} className={`p-3 rounded-xl border bg-${meta.color}-50 border-${meta.color}-100`}>
-                        <div className={`flex items-center mb-2 font-bold text-${meta.color}-800 text-xs`}><meta.icon className="w-3 h-3 mr-1" /> {meta.label}</div>
+                        <div className="flex justify-between items-center mb-2">
+                             <div className={`flex items-center font-bold text-${meta.color}-800 text-xs`}><meta.icon className="w-3 h-3 mr-1" /> {meta.label}</div>
+                             {/* HEDEF GÖSTERİMİ */}
+                             {typeof target === 'number' && <span className="text-[10px] bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-500 font-bold">Hedef: {target}</span>}
+                        </div>
                         <div className="flex gap-2">
                             <input type="tel" placeholder="D" className="flex-1 p-2 rounded border text-center text-sm font-bold outline-none focus:ring-2" value={form[key+'True']||''} onChange={e=>handleChange(key+'True',e.target.value)} />
                             <input type="tel" placeholder="Y" className="flex-1 p-2 rounded border text-center text-sm font-bold outline-none focus:ring-2" value={form[key+'False']||''} onChange={e=>handleChange(key+'False',e.target.value)} />
@@ -516,8 +577,8 @@ function InstallGuideModal({ onClose }) {
                     <p className="text-slate-500 text-sm mt-2">Bu programı bir uygulama gibi kullanmak için:</p>
                 </div>
                 <div className="space-y-4">
-                    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100"><div className="text-2xl">🍎</div><div><h4 className="font-bold text-slate-700 text-xs">iPhone:</h4><p className="text-xs text-slate-600">Paylaş <Share className="w-3 h-3 inline"/> -> Ana Ekrana Ekle</p></div></div>
-                    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100"><div className="text-2xl">🤖</div><div><h4 className="font-bold text-slate-700 text-xs">Android:</h4><p className="text-xs text-slate-600">3 nokta <MoreVertical className="w-3 h-3 inline"/> -> Uygulamayı Yükle</p></div></div>
+                    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100"><div className="text-2xl">🍎</div><div><h4 className="font-bold text-slate-700 text-xs">iPhone:</h4><p className="text-xs text-slate-600">Paylaş <Share className="w-3 h-3 inline"/> {'>'} Ana Ekrana Ekle</p></div></div>
+                    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100"><div className="text-2xl">🤖</div><div><h4 className="font-bold text-slate-700 text-xs">Android:</h4><p className="text-xs text-slate-600">3 nokta <MoreVertical className="w-3 h-3 inline"/> {'>'} Uygulamayı Yükle</p></div></div>
                 </div>
                 <button onClick={onClose} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl mt-6">Tamam</button>
             </div>
