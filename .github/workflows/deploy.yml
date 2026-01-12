@@ -1,0 +1,48 @@
+name: React Sitesini Yayınla
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodları Çek
+        uses: actions/checkout@v4
+      
+      - name: Node.js Kurulumu
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          
+      - name: Paketleri Yükle
+        run: npm install
+        
+      - name: Siteyi Oluştur (Build)
+        run: npm run build
+        
+      - name: Dosyaları Hazırla
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./build
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: GitHub Pages'e Gönder
+        id: deployment
+        uses: actions/deploy-pages@v4
