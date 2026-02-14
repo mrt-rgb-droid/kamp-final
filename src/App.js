@@ -8,9 +8,11 @@ import {
   History, Edit3, Bell, Check, List, Clock, XCircle, HelpCircle, Info, Gift, Image as ImageIcon, Camera, Palette, FileText, Send, Lock, Crown, Gem, RotateCcw, CalendarDays, MapPin, Globe, Scroll, Heart, Sliders
 } from 'lucide-react';
 
+// --- DÜZELTİLEN KISIM BURASI ---
+// Aşağıdaki satırlarda senin kullandığın 'doc', 'setDoc' gibi tüm araçları ekledim:
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, collection, doc, setDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp, updateDoc, deleteField } from 'firebase/firestore';
 
 // --- 1. FIREBASE INIT ---
 const firebaseConfig = {
@@ -25,6 +27,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
 
 // --- 2. AYARLAR VE SABİTLER ---
 const APP_ID = "kamp-takip-yonetici-v3"; 
