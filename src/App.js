@@ -9,23 +9,22 @@ import {
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, doc, setDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp, updateDoc, deleteField } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
-// --- 1. FIREBASE INIT (GÜNCEL VE GÜVENLİ HALİ) ---
+// --- 1. FIREBASE INIT ---
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID
+  apiKey: "AIzaSyA4S6agu71sO3bXlA1CsUGD0V0d8ImD3lg",
+  authDomain: "kamp-takip-sistemi.firebaseapp.com",
+  projectId: "kamp-takip-sistemi",
+  storageBucket: "kamp-takip-sistemi.firebasestorage.app",
+  messagingSenderId: "339295588440",
+  appId: "1:339295588440:web:3400318781869a00afba2d"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
 
 // --- 2. AYARLAR VE SABİTLER ---
 const APP_ID = "kamp-takip-yonetici-v3"; 
