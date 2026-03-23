@@ -12,6 +12,100 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore, collection, doc, setDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp, updateDoc, deleteField } from 'firebase/firestore';
 
+// --- UIVERSE CUSTOM STYLES & FONTS ---
+const UiverseStyles = () => (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');
+    
+    .spencerian {
+        font-family: 'Dancing Script', cursive;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+    }
+
+    .uiverse-checkbox input { position: absolute; opacity: 0; cursor: pointer; height: 0; width: 0; }
+    .uiverse-checkbox { display: block; position: relative; cursor: pointer; font-size: 16px; user-select: none; }
+    .uiverse-checkmark { position: relative; top: 0; left: 0; height: 1.4em; width: 1.4em; border: 2px solid var(--chk-color, #2196F3); border-radius: 1rem 0rem 1rem; transform: rotate(45deg); transition: all .5s ease-in-out; }
+    .uiverse-checkbox input:checked ~ .uiverse-checkmark { box-shadow: 0px 0px 15px 2px var(--chk-color, #2196F3); border-radius: 1rem 0rem 1rem; background-color: var(--chk-bg, rgba(33, 150, 243, 0.12)); }
+    .uiverse-checkmark:after { content: ""; position: absolute; display: none; }
+    .uiverse-checkbox input:checked ~ .uiverse-checkmark:after { display: block; }
+    .uiverse-checkbox .uiverse-checkmark:after { left: 0.35em; top: 0.20em; width: 0.25em; height: 0.5em; border: solid var(--chk-color, #2196F3); border-width: 0 0.15em 0.15em 0; transform: rotate(-5deg); animation: upAnimate 0.5s cubic-bezier(0.165, 0.84, 0.44, 1); }
+    @keyframes upAnimate { from { transform: translate(-20px, -20px) rotate(-5deg); opacity: 0; } to { transform: translate(0, 0) rotate(-5deg); opacity: 1; } }
+
+    /* Öğrenci Kartı 3D Flip Animasyonu */
+    .tc-card { perspective: 1000px; height: 440px; width: 100%; position: relative; }
+    .tc-content { width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 600ms cubic-bezier(0.4, 0.2, 0.2, 1); border-radius: 1.5rem; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.15); }
+    .tc-card.flipped .tc-content { transform: rotateY(180deg); }
+    .tc-front, .tc-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 1.5rem; overflow: hidden; }
+    
+    /* Ön Yüz */
+    .tc-front { background-color: #0f172a; color: white; display: flex; flex-direction: column; z-index: 2; }
+    .tc-front-bg { position: absolute; width: 100%; height: 100%; top:0; left:0; z-index:0; overflow:hidden; pointer-events: none; }
+    .tc-circle { width: 140px; height: 140px; border-radius: 50%; background-color: rgba(99, 102, 241, 0.4); position: absolute; filter: blur(35px); animation: tc-floating 4s infinite ease-in-out alternate; }
+    #tc-bottom { background-color: rgba(168, 85, 247, 0.4); left: -10%; bottom: -10%; width: 180px; height: 180px; animation-delay: -800ms; }
+    #tc-right { background-color: rgba(236, 72, 153, 0.3); right: -10%; top: -10%; width: 140px; height: 140px; animation-delay: -1800ms; }
+    @keyframes tc-floating { 0% { transform: translateY(0px) scale(1); } 50% { transform: translateY(20px) scale(1.1); } 100% { transform: translateY(0px) scale(1); } }
+    
+    /* Arka Yüz */
+    .tc-back { background-color: #f8fafc; transform: rotateY(180deg); display: flex; flex-direction: column; border: 1px solid #e2e8f0; z-index: 1; pointer-events: auto; overflow: hidden; }
+
+    /* Hamburger Menü (Öğrenci Kartı Yan Menü Tetikleyicisi) */
+    .ham-input { display: none; }
+    .ham-toggle { position: relative; width: 24px; height: 24px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4.5px; transition-duration: .4s; margin-right: 10px; }
+    .ham-bars { width: 100%; height: 2.5px; background-color: #4f46e5; border-radius: 4px; }
+    .ham-bar2 { transition-duration: .6s; }
+    .ham-bar1, .ham-bar3 { width: 75%; }
+    .ham-input:checked + .ham-toggle .ham-bars { position: absolute; transition-duration: .4s; }
+    .ham-input:checked + .ham-toggle .ham-bar2 { transform: scaleX(0); transition-duration: .4s; }
+    .ham-input:checked + .ham-toggle .ham-bar1 { width: 100%; transform: rotate(45deg); transition-duration: .4s; }
+    .ham-input:checked + .ham-toggle .ham-bar3 { width: 100%; transform: rotate(-45deg); transition-duration: .4s; }
+    .ham-input:checked + .ham-toggle { transition-duration: .4s; transform: rotate(180deg); }
+
+    /* Yan Açılır Menü Panel */
+    .side-panel { position: absolute; top: 0; left: 0; width: 240px; max-width: 85%; height: 100%; background-color: #ffffff; border-right: 1px solid #e2e8f0; z-index: 30; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 4px 0 15px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+    .side-panel.open { transform: translateX(0); }
+
+    /* Öğrenci Kartı İçi Modern Aksiyon Menüsü */
+    .action-menu { width: 100%; display: flex; flex-direction: column; gap: 4px; padding: 4px 0; }
+    .action-menu .separator { border-top: 1px solid #f1f5f9; margin: 6px 10px; }
+    .action-menu .list { list-style-type: none; display: flex; flex-direction: column; gap: 4px; padding: 0px 8px; margin: 0; }
+    .action-menu .list .element { display: flex; align-items: center; color: #64748b; gap: 12px; transition: all 0.2s ease-out; padding: 10px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+    .action-menu .list .element svg { width: 16px; height: 16px; transition: all 0.2s ease-out; }
+    .action-menu .list .element .label { font-weight: 600; }
+    
+    .action-menu .list .element:hover { transform: translateX(4px); }
+    .action-menu .list .element:active { transform: scale(0.98); }
+    
+    .action-menu .list .element.primary:hover { background-color: #eef2ff; color: #4f46e5; }
+    .action-menu .list .element.primary:hover svg { stroke: #4f46e5; }
+    
+    .action-menu .list .element.warning:hover { background-color: #fff7ed; color: #ea580c; }
+    .action-menu .list .element.warning:hover svg { stroke: #ea580c; }
+    
+    .action-menu .list .element.info:hover { background-color: #f0fdf4; color: #16a34a; }
+    .action-menu .list .element.info:hover svg { stroke: #16a34a; }
+
+    .action-menu .list .element.danger:hover { background-color: #fef2f2; color: #dc2626; }
+    .action-menu .list .element.danger:hover svg { stroke: #dc2626; }
+
+    .action-menu .list .element.default:hover { background-color: #f1f5f9; color: #1e293b; }
+    .action-menu .list .element.default:hover svg { stroke: #1e293b; }
+
+    /* Dalga Animasyonlu Input Tasarımı */
+    .wave-group { position: relative; width: 100%; margin-top: 16px; margin-bottom: 8px; }
+    .wave-group input { background-color: transparent; border: 0; border-bottom: 2px solid #cbd5e1; display: block; width: 100%; padding: 10px 0; font-size: 15px; color: #1e293b; font-weight: 600; outline: none; transition: border-color 0.3s; }
+    .wave-group input:focus, .wave-group input:valid { border-bottom-color: #4f46e5; }
+    .wave-group label { position: absolute; top: 10px; left: 0; pointer-events: none; display: flex; }
+    .wave-group label span { display: inline-block; font-size: 15px; color: #94a3b8; font-weight: 600; transition: 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+    .wave-group input:focus+label span, .wave-group input:valid+label span { color: #4f46e5; transform: translateY(-24px) scale(0.85); transform-origin: left bottom; }
+    .wave-group .wave-icon { position: absolute; left: 0; top: 8px; color: #94a3b8; transition: color 0.3s; pointer-events: none; }
+    .wave-group input:focus ~ .wave-icon, .wave-group input:valid ~ .wave-icon { color: #4f46e5; }
+    
+    .wave-group.has-icon input { padding-left: 32px; }
+    .wave-group.has-icon label { left: 32px; }
+  `}</style>
+);
+
 // --- 1. FIREBASE INIT ---
 const firebaseConfig = {
   apiKey: "AIzaSyA4S6agu71sO3bXlA1CsUGD0V0d8ImD3lg",
@@ -381,6 +475,30 @@ const generateReportCard = (student, curriculum, customMessage = null) => {
 
 // --- BİLEŞENLER ---
 
+// Ortak Dalga Animasyonlu Input Bileşeni
+const WaveInput = ({ value, onChange, label, icon: Icon, type = "text", rightElement }) => {
+    return (
+        <div className={`wave-group ${Icon ? 'has-icon' : ''}`}>
+            <input 
+                type={type} 
+                required 
+                value={value} 
+                onChange={onChange} 
+            />
+            <label>
+                {label.split('').map((char, index) => (
+                    <span key={index} style={{ transitionDelay: `${index * 30}ms` }}>
+                        {char === ' ' ? '\u00A0' : char}
+                    </span>
+                ))}
+            </label>
+            {Icon && <Icon className="wave-icon w-5 h-5" />}
+            {rightElement && <div className="absolute right-0 top-2 z-10">{rightElement}</div>}
+        </div>
+    );
+};
+
+
 const GuideSection = ({icon: Icon, title, text}) => (
     <div className="space-y-2 mb-4">
         <div className="flex items-center gap-2 text-indigo-600 font-bold border-b pb-1 border-indigo-200"><Icon className="w-5 h-5"/> {title}</div>
@@ -476,7 +594,7 @@ function DailyQuestionCard({ questionData, grade, showDialog }) {
                 <div className="space-y-2">
                     {questionData.type === 'test' ? (
                         <div className="grid grid-cols-2 gap-2">{['A','B','C','D'].map(opt=><button key={opt} onClick={()=>setAnswer(opt)} className={`p-2 rounded border text-sm font-bold ${answer===opt?'bg-violet-600 text-white':'bg-white'}`}>{opt}</button>)}</div>
-                    ) : <input className="w-full p-2 border rounded text-sm" placeholder="Cevabını yaz..." value={answer} onChange={e=>setAnswer(e.target.value)} />}
+                    ) : <WaveInput value={answer} onChange={e=>setAnswer(e.target.value)} label="Cevabını yaz..." /> }
                     <button onClick={handleSubmit} className="w-full bg-green-500 text-white py-2 rounded-lg font-bold text-sm mt-2">Gönder</button>
                 </div>
             ) : <div className="text-center font-bold text-sm p-2 bg-green-100 text-green-700 rounded">{result==='correct'?'Tebrikler Doğru!':'Yanıtın Kaydedildi'}</div>}
@@ -598,7 +716,7 @@ function StudentProgramEditorModal({ student, globalCurriculum, totalDays, onClo
                     </div>
 
                     <div className="bg-white p-4 rounded-xl shadow-sm mb-4 border border-slate-200">
-                        <h3 className="text-xs font-bold text-slate-500 uppercase mb-3">Bu Güne Görev Ekle</h3>
+                        <h3 className="text-xs font-bold text-slate-500 uppercase mb-1">Bu Güne Görev Ekle</h3>
                         <div className="flex flex-col gap-3">
                             <div className="flex gap-2">
                                 <select className="flex-1 p-2 border rounded-lg text-sm bg-slate-50 outline-none" value={newItem.id} onChange={e => setNewItem({...newItem, id: e.target.value})}>
@@ -606,10 +724,12 @@ function StudentProgramEditorModal({ student, globalCurriculum, totalDays, onClo
                                 </select>
                                 <input type="number" className="w-20 p-2 border rounded-lg text-sm outline-none" placeholder="Hedef" value={newItem.target} onChange={e => setNewItem({...newItem, target: parseInt(e.target.value)})} />
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Edit3 className="w-4 h-4 text-slate-400" />
-                                <input type="text" className="flex-1 p-2 border rounded-lg text-xs outline-none" placeholder="Özel Görev Adı (Örn: Paragraf Kampı)" value={newItem.customLabel} onChange={e => setNewItem({...newItem, customLabel: e.target.value})} />
-                            </div>
+                            <WaveInput 
+                                value={newItem.customLabel} 
+                                onChange={e => setNewItem({...newItem, customLabel: e.target.value})} 
+                                label="Özel Görev Adı (İsteğe Bağlı)" 
+                                icon={Edit3} 
+                            />
                             <button onClick={handleAddItem} className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-bold text-xs flex items-center justify-center transition"><Plus className="w-4 h-4 mr-1"/> Listeye Ekle</button>
                         </div>
                     </div>
@@ -689,7 +809,22 @@ function ProgramEditorModal({ curriculum, onClose, showDialog }) {
             
             <div className="bg-white p-4 rounded-xl shadow-sm mb-4"><label className="text-xs font-bold text-slate-500 uppercase">Sınıf Seç</label><div className="flex gap-2 mt-2 overflow-x-auto pb-2">{[1,2,3,4,5,6,7,8].map(g => (<button key={g} onClick={() => setSelectedGrade(g.toString())} className={`px-4 py-2 border rounded-lg font-bold ${selectedGrade === g.toString() ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600'}`}>{g}. Sınıf</button>))}</div></div>
             
-            <div className="bg-white p-4 rounded-xl shadow-sm mb-4"><h3 className="text-sm font-bold text-slate-700 mb-3">Ders Ekle</h3><div className="flex flex-col gap-3"><div className="flex gap-2"><select className="flex-1 p-2 border rounded-lg text-sm bg-white" value={newItem.id} onChange={e => setNewItem({...newItem, id: e.target.value})}>{Object.keys(SUBJECT_METADATA).map(key => (<option key={key} value={key}>{SUBJECT_METADATA[key].label}</option>))}</select><input type="number" className="w-20 p-2 border rounded-lg text-sm" placeholder="Hedef" value={newItem.target} onChange={e => setNewItem({...newItem, target: parseInt(e.target.value)})} /></div><div className="flex items-center gap-2"><Edit3 className="w-4 h-4 text-slate-400" /><input type="text" className="flex-1 p-2 border rounded-lg text-sm" placeholder="Özel Ders İsmi (İsteğe Bağlı)" value={newItem.customLabel} onChange={e => setNewItem({...newItem, customLabel: e.target.value})} /></div><button onClick={handleAddItem} className="w-full bg-green-500 text-white py-2 rounded-lg font-bold text-sm flex items-center justify-center"><Plus className="w-4 h-4 mr-2"/> Listeye Ekle</button></div></div>
+            <div className="bg-white p-4 rounded-xl shadow-sm mb-4">
+                <h3 className="text-sm font-bold text-slate-700 mb-1">Ders Ekle</h3>
+                <div className="flex flex-col gap-3">
+                    <div className="flex gap-2">
+                        <select className="flex-1 p-2 border rounded-lg text-sm bg-white" value={newItem.id} onChange={e => setNewItem({...newItem, id: e.target.value})}>{Object.keys(SUBJECT_METADATA).map(key => (<option key={key} value={key}>{SUBJECT_METADATA[key].label}</option>))}</select>
+                        <input type="number" className="w-20 p-2 border rounded-lg text-sm" placeholder="Hedef" value={newItem.target} onChange={e => setNewItem({...newItem, target: parseInt(e.target.value)})} />
+                    </div>
+                    <WaveInput 
+                        value={newItem.customLabel} 
+                        onChange={e => setNewItem({...newItem, customLabel: e.target.value})} 
+                        label="Özel Ders İsmi (İsteğe Bağlı)" 
+                        icon={Edit3} 
+                    />
+                    <button onClick={handleAddItem} className="w-full bg-green-500 text-white py-2 rounded-lg font-bold text-sm flex items-center justify-center"><Plus className="w-4 h-4 mr-2"/> Listeye Ekle</button>
+                </div>
+            </div>
             <div className="space-y-2 mb-20">{safeArray(list).map((item, idx) => { const meta = getSubjectInfo(item); return ( <div key={item.id + idx} className="bg-white p-3 rounded-lg border border-slate-200 flex justify-between items-center"><div className="flex items-center gap-3">{meta.icon && <div className={`p-2 bg-${meta.color}-50 rounded-lg`}><meta.icon className={`w-5 h-5 text-${meta.color}-600`}/></div>}<div><div className="font-bold text-slate-700 text-sm">{meta.label}</div><div className="text-xs text-slate-500">Hedef: {item.target} {meta.type === 'question' ? 'soru' : 'dk'}</div></div></div><button onClick={() => handleRemoveItem(idx)} className="text-red-400 hover:text-red-600 p-2"><Trash2 className="w-4 h-4"/></button></div> ) })}</div>
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t flex gap-2">
                 <button onClick={handleSave} className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold flex items-center justify-center shadow-lg"><Save className="w-5 h-5 mr-2"/> Şablonu Kaydet</button>
@@ -803,22 +938,286 @@ function LGSCustomEditorModal({ initialSettings, onClose, showDialog }) {
     );
 }
 
+// --- STUDENT APP BİLEŞENİ ---
+function StudentApp({ user, studentName, grade, curriculum, announcementData, dailyQuestion, generalSettings, showDialog }) {
+  const [activeTab, setActiveTab] = useState('home');
+  const [data, setData] = useState(null); 
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [showMsgModal, setShowMsgModal] = useState(false); 
+  const [messageText, setMessageText] = useState("");
+  const [allStudents, setAllStudents] = useState([]); 
+  const docId = generateStudentId(studentName, grade);
+  
+  const totalProgramDays = (parseInt(generalSettings?.programWeeks) || 2) * 7;
+  const daysArray = Array.from({ length: totalProgramDays }, (_, i) => i + 1);
+  const isLeaderboardActive = generalSettings?.isLeaderboardActive !== false;
+
+  const studentGradeStr = grade.toString();
+  const myCurriculum = safeArray(
+    curriculum?.[studentGradeStr] || 
+    curriculum?.[7] || 
+    DEFAULT_CURRICULUM[7] ||
+    []
+  );
+
+  useEffect(() => {
+    if (!user) return;
+    const docRef = doc(db, 'artifacts', APP_ID, 'public_data', docId);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) { setData(docSnap.data()); } 
+      else {
+        const newData = { id: docId, name: studentName, grade: grade, createdAt: serverTimestamp(), days: {} };
+        setDoc(docRef, newData, { merge: true }).catch(e => console.error(e));
+        setData(newData);
+      }
+    }, (err) => console.log("Student Data Error", err));
+    return () => unsubscribe();
+  }, [user, docId, studentName, grade]);
+
+  useEffect(() => {
+      if (activeTab === 'leaderboard') {
+          const colRef = collection(db, 'artifacts', APP_ID, 'public_data');
+          const unsub = onSnapshot(colRef, (snap) => {
+              setAllStudents(snap.docs.map(d => ({id: d.id, ...d.data()})));
+          });
+          return () => unsub();
+      }
+  }, [activeTab]);
+
+  useEffect(() => {
+      if (!isLeaderboardActive && activeTab === 'leaderboard') {
+          setActiveTab('home');
+      }
+  }, [isLeaderboardActive, activeTab]);
+
+  const handleSendMessage = async () => {
+    if (!messageText.trim()) return;
+    const docRef = doc(db, 'artifacts', APP_ID, 'public_data', docId);
+    await setDoc(docRef, { studentMessage: messageText, studentMessageTime: serverTimestamp() }, { merge: true });
+    showDialog({type:'alert', message:'Mesajınız iletildi.'});
+    setMessageText("");
+    setShowMsgModal(false);
+  };
+
+  const saveDayData = async (day, dayData) => {
+    setData(prev => ({ ...prev, days: { ...prev.days, [day]: dayData } }));
+    const docRef = doc(db, 'artifacts', APP_ID, 'public_data', docId);
+    await setDoc(docRef, { days: { [day]: dayData }, lastUpdated: serverTimestamp() }, { merge: true });
+    setSelectedDay(null);
+    showDialog({type:'alert', message:'Kayıt başarılı!'});
+  };
+
+  if (!data) return <div className="p-8 text-center text-slate-400"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-indigo-500" />Veriler Hazırlanıyor...</div>;
+
+  return (
+    <>
+      <div className="p-4 space-y-6 pb-24">
+        {activeTab === 'home' && <HomeView data={data} grade={grade} studentName={studentName} defaultCurriculum={myCurriculum} announcementData={announcementData} dailyQuestion={dailyQuestion} studentId={docId} onOpenMsg={() => setShowMsgModal(true)} generalSettings={generalSettings} totalDays={totalProgramDays} showDialog={showDialog} />}
+        {activeTab === 'calendar' && <CalendarView data={data} onDayClick={setSelectedDay} daysArray={daysArray} />}
+        {isLeaderboardActive && activeTab === 'leaderboard' && <LeaderboardView students={allStudents} currentStudentId={docId} currentGrade={grade} />}
+        {activeTab === 'badges' && <BadgesView data={data} grade={grade} totalDays={totalProgramDays} />}
+      </div>
+      
+      {selectedDay && <DayEditModal day={selectedDay} curriculum={data.customProgram?.[selectedDay] || myCurriculum} initialData={data.days?.[selectedDay]} onClose={() => setSelectedDay(null)} onSave={saveDayData} />}
+      
+      {showMsgModal && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+              <div className="bg-white w-full max-w-sm rounded-2xl p-4">
+                  <h3 className="font-bold text-lg mb-2">Öğretmene Mesaj</h3>
+                  <textarea className="w-full p-2 border rounded-lg mb-4 text-sm" rows="4" placeholder="Mesajınızı yazın..." value={messageText} onChange={e=>setMessageText(e.target.value)}></textarea>
+                  <div className="flex gap-2">
+                      <button onClick={()=>setShowMsgModal(false)} className="flex-1 bg-slate-200 py-2 rounded-lg font-bold text-slate-600">İptal</button>
+                      <button onClick={handleSendMessage} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-bold">Gönder</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-2 flex justify-around items-center z-40 w-full max-w-md mx-auto shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <NavButton icon={Home} label="Ana Sayfa" isActive={activeTab === 'home'} onClick={() => setActiveTab('home')} />
+        <NavButton icon={Calendar} label="Takvim" isActive={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} />
+        {isLeaderboardActive && <NavButton icon={Crown} label="Sıralama" isActive={activeTab === 'leaderboard'} onClick={() => setActiveTab('leaderboard')} />}
+        <NavButton icon={Award} label="Rozetler" isActive={activeTab === 'badges'} onClick={() => setActiveTab('badges')} />
+      </div>
+    </>
+  );
+}
+
+// --- TEACHER APP BİLEŞENİ ---
+function TeacherApp({ user, curriculum, currentAnnouncementData, generalSettings, showDialog }) {
+    const [students, setStudents] = useState([]);
+    const [search, setSearch] = useState("");
+    const [isEditingProgram, setIsEditingProgram] = useState(false);
+    const [isLGSEditorOpen, setIsLGSEditorOpen] = useState(false);
+    const [editingStudentProgram, setEditingStudentProgram] = useState(null); 
+
+    const [newAnnouncement, setNewAnnouncement] = useState("");
+    const [questionText, setQuestionText] = useState("");
+    const [targetGrade, setTargetGrade] = useState("all");
+    const [questionImage, setQuestionImage] = useState(null);
+    const [questionType, setQuestionType] = useState("text"); 
+    const [correctOption, setCorrectOption] = useState("A");
+
+    useEffect(() => {
+        if(!user) return;
+        const colRef = collection(db, 'artifacts', APP_ID, 'public_data');
+        const unsub = onSnapshot(colRef, (snap) => {
+            const list = snap.docs.map(d => ({id: d.id, ...d.data()}));
+            setStudents(list.sort((a,b) => (parseInt(a.grade)||0) - (parseInt(b.grade)||0) || a.name.localeCompare(b.name)));
+        }, (err) => console.log("List Error", err));
+        return () => unsub();
+    }, [user]);
+
+    const handleSaveAnnouncement = async () => {
+        if (!newAnnouncement.trim()) return;
+        await setDoc(doc(db, 'artifacts', APP_ID, 'settings', 'announcement'), { text: newAnnouncement, timestamp: serverTimestamp() });
+        setNewAnnouncement("");
+        showDialog({type:'alert', message:'Duyuru yayınlandı!'});
+    };
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const base64 = await compressImage(file);
+            setQuestionImage(base64);
+        }
+    };
+
+    const handleSendQuestion = async () => {
+        if (!questionText.trim()) return;
+        await setDoc(doc(db, 'artifacts', APP_ID, 'settings', 'dailyQuestion'), { 
+            text: questionText, 
+            image: questionImage, 
+            targetGrade: targetGrade,
+            type: questionType,
+            correctOption: questionType === 'test' ? correctOption : null,
+            timestamp: serverTimestamp() 
+        });
+        showDialog({type:'alert', message:'Soru gönderildi!'});
+        setQuestionText("");
+        setQuestionImage(null);
+    };
+
+    const deleteStudent = async (studentId) => {
+        await deleteDoc(doc(db, 'artifacts', APP_ID, 'public_data', studentId));
+        showDialog({type:'alert', message:'Öğrenci silindi.'});
+    };
+    
+    const resetStudentProgress = async (studentId) => {
+        const docRef = doc(db, 'artifacts', APP_ID, 'public_data', studentId);
+        await updateDoc(docRef, { days: deleteField(), customProgram: deleteField() });
+        showDialog({type:'alert', message:'Öğrenci programı sıfırlandı.'});
+    };
+
+    const filteredStudents = students.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
+    const totalStudents = students.length;
+    const activeToday = students.filter(s => s.lastUpdated && new Date(s.lastUpdated.seconds * 1000).toDateString() === new Date().toDateString()).length;
+    const totalDays = (parseInt(generalSettings?.programWeeks) || 2) * 7;
+    const isAnnouncementActive = currentAnnouncementData && isContentValid(currentAnnouncementData.timestamp);
+
+    if (isEditingProgram) return <ProgramEditorModal curriculum={curriculum} onClose={() => setIsEditingProgram(false)} showDialog={showDialog} />;
+    if (isLGSEditorOpen) return <LGSCustomEditorModal initialSettings={generalSettings} onClose={() => setIsLGSEditorOpen(false)} showDialog={showDialog} />;
+    if (editingStudentProgram) return <StudentProgramEditorModal student={editingStudentProgram} globalCurriculum={curriculum} totalDays={totalDays} onClose={() => setEditingStudentProgram(null)} showDialog={showDialog} />;
+
+    return (
+        <div className="p-4 pb-20 space-y-4">
+            <div className="bg-slate-800 text-white p-6 rounded-2xl shadow-lg">
+                <div className="flex justify-between items-start mb-4">
+                    <div><h2 className="font-bold text-xl mb-1">Öğretmen Paneli</h2><div className="flex gap-4 mt-2 text-sm"><div><span className="block text-xl font-bold">{totalStudents}</span><span className="text-slate-400 text-xs">Toplam</span></div><div><span className="block text-xl font-bold text-green-400">{activeToday}</span><span className="text-slate-400 text-xs">Aktif</span></div></div></div>
+                    <button onClick={() => setIsEditingProgram(true)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center transition"><Settings className="w-3 h-3 mr-1" /> Şablonlar</button>
+                </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                 <h3 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center"><Sliders className="w-3 h-3 mr-2"/> Kamp & Müfredat Ayarları</h3>
+                 <div className="flex gap-4 items-center">
+                    <button 
+                        onClick={() => setIsLGSEditorOpen(true)}
+                        className="w-full bg-blue-50 text-blue-600 border border-blue-200 py-3 rounded-xl font-bold flex items-center justify-center hover:bg-blue-100 transition"
+                    >
+                        <Edit3 className="w-4 h-4 mr-2" />
+                        Kamp & LGS Programını Özelleştir
+                    </button>
+                 </div>
+                 <div className="text-[10px] text-slate-400 text-center">
+                     Mevcut Süre: <span className="font-bold text-slate-600">{generalSettings?.programWeeks || 2} Hafta</span> | LGS Konuları: <span className="font-bold text-slate-600">{generalSettings?.customLGS ? 'Özel Seçim' : 'Varsayılan'}</span>
+                 </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                <div>
+                    <h3 className="text-xs font-bold text-slate-500 uppercase flex items-center"><Bell className="w-3 h-3 mr-2"/> Duyuru Panosu</h3>
+                    {isAnnouncementActive && (
+                        <div className="mt-2 mb-1 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-start gap-2">
+                            <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                            <div><strong>Aktif Duyuru:</strong> {currentAnnouncementData.text} <br/><span className="text-[10px] opacity-75">Bu duyuru 24 saat sonra otomatik gizlenecek.</span></div>
+                        </div>
+                    )}
+                    <div className="flex gap-3 items-end">
+                        <div className="flex-1">
+                            <WaveInput value={newAnnouncement} onChange={e=>setNewAnnouncement(e.target.value)} label="Yeni duyuru metni..." />
+                        </div>
+                        <button onClick={handleSaveAnnouncement} className="bg-red-500 text-white px-4 py-2.5 rounded-lg text-xs font-bold mb-1 shadow-sm active:scale-95 transition">Yayınla</button>
+                    </div>
+                </div>
+                <div className="pt-4 border-t border-slate-100">
+                    <h3 className="text-xs font-bold text-slate-500 uppercase flex items-center"><HelpCircle className="w-3 h-3 mr-2"/> Günün Sorusu</h3>
+                    <div className="flex flex-col mb-2">
+                        <div className="flex gap-3 items-end">
+                            <select className="text-xs p-2.5 border border-slate-200 rounded-lg bg-white mb-2" value={targetGrade} onChange={e=>setTargetGrade(e.target.value)}><option value="all">Tüm Sınıflar</option>{[1,2,3,4,5,6,7,8].map(g=><option key={g} value={g.toString()}>{g}. Sınıf</option>)}</select>
+                            <div className="flex-1">
+                                <WaveInput value={questionText} onChange={e=>setQuestionText(e.target.value)} label="Soru metni..." />
+                            </div>
+                        </div>
+                        <div className="flex gap-2 items-center mt-2">
+                            <select className="text-xs p-2 border border-slate-200 rounded-lg bg-white" value={questionType} onChange={e=>setQuestionType(e.target.value)}><option value="text">Klasik</option><option value="test">Test (A,B,C,D)</option></select>
+                            {questionType === 'test' && (<select className="text-xs p-2 border rounded-lg bg-white bg-green-50 text-green-700 font-bold" value={correctOption} onChange={e=>setCorrectOption(e.target.value)}><option value="A">Doğru: A</option><option value="B">Doğru: B</option><option value="C">Doğru: C</option><option value="D">Doğru: D</option></select>)}
+                        </div>
+                        <div className="flex items-center gap-2 mt-4"><label className="flex items-center justify-center bg-indigo-50 text-indigo-600 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-indigo-100 transition w-full border border-indigo-200"><Camera className="w-4 h-4 mr-2" />{questionImage ? "Fotoğraf Seçildi" : "Fotoğraf Ekle"}<input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label></div>
+                    </div>
+                    <button onClick={handleSendQuestion} className="w-full bg-violet-600 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-sm active:scale-95 transition mt-2">Soruyu Gönder</button>
+                </div>
+            </div>
+            
+            <div className="bg-white px-4 py-3 rounded-xl shadow-sm border border-slate-200 shrink-0">
+                <WaveInput 
+                    value={search} 
+                    onChange={(e) => setSearch(e.target.value)} 
+                    label="Öğrenci ara..." 
+                    icon={Search} 
+                />
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
+                {filteredStudents.map(std => <StudentDetailRow key={std.id} student={std} onDelete={deleteStudent} onReset={resetStudentProgress} curriculum={curriculum?.[String(std.grade)] || DEFAULT_CURRICULUM[7]} totalDays={totalDays} showDialog={showDialog} openCustomProgram={setEditingStudentProgram} />)}
+            </div>
+        </div>
+    )
+}
+
 function StudentDetailRow({ student, onDelete, onReset, curriculum, totalDays, showDialog, openCustomProgram }) {
-  const [expanded, setExpanded] = useState(false);
-  const [msg, setMsg] = useState('');
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const completed = Object.keys(student.days || {}).length;
   const pct = Math.round((completed / (totalDays || 14)) * 100);
   const daysArray = Array.from({ length: (totalDays || 14) }, (_, i) => i + 1);
 
-  let rowColor = "bg-white border-slate-200";
-  if (pct < 20) rowColor = "bg-red-50 border-red-200";
-  else if (pct > 80) rowColor = "bg-green-50 border-green-200";
-
-  const sendFeedback = async () => {
-    const docRef = doc(db, 'artifacts', APP_ID, 'public_data', student.id);
-    await setDoc(docRef, { teacherMessage: msg, teacherMessageTime: serverTimestamp() }, { merge: true });
-    setMsg('');
-    showDialog({type:'alert', message:'Mesaj gönderildi.'});
+  const openMessagePrompt = () => {
+    showDialog({
+        type: 'prompt',
+        title: 'Öğrenciye Not Gönder',
+        message: 'Bu not öğrencinin ekranında görünecektir. (Notu silmek için kutuyu boş bırakıp onaylayın)',
+        defaultValue: student.teacherMessage || "",
+        onConfirm: async (customMsg) => {
+             try {
+                 const docRef = doc(db, 'artifacts', APP_ID, 'public_data', student.id);
+                 await setDoc(docRef, { teacherMessage: customMsg, teacherMessageTime: serverTimestamp() }, { merge: true });
+                 showDialog({type:'alert', message:'Not başarıyla kaydedildi!'});
+             } catch(e) {
+                 showDialog({type:'alert', message: "Bir hata oluştu: " + e.message});
+             }
+        }
+    });
   };
 
   const handleDownloadReport = () => { 
@@ -850,86 +1249,173 @@ function StudentDetailRow({ student, onDelete, onReset, curriculum, totalDays, s
   const hasActiveTeacherMessage = student.teacherMessage && isContentValid(student.teacherMessageTime);
 
   return (
-    <div className={`border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition ${rowColor}`}>
-        <div className="p-4 flex justify-between items-center cursor-pointer" onClick={() => setExpanded(!expanded)}>
-            <div className="flex items-center gap-3 w-full">
-                <div className="bg-white border w-10 h-10 rounded-full flex items-center justify-center font-bold text-slate-600 flex-shrink-0 shadow-sm">{student.grade}</div>
-                <div className="flex-1">
-                    <div className="flex justify-between items-center">
-                        <h4 className="font-bold text-sm text-slate-800 flex items-center">
-                            {student.name}
-                            {hasStudentMessage && <div className="ml-2 bg-blue-500 text-white text-[9px] px-2 py-0.5 rounded-full animate-pulse">1 Mesaj</div>}
-                        </h4>
-                        <span className="text-xs font-bold text-slate-500">%{pct}</span>
+    <div className={`tc-card ${isFlipped ? 'flipped' : ''}`}>
+      <div className="tc-content">
+        {/* ÖN YÜZ */}
+        <div className="tc-front p-6">
+            <div className="tc-front-bg">
+                <div className="tc-circle"></div>
+                <div className="tc-circle" id="tc-right"></div>
+                <div className="tc-circle" id="tc-bottom"></div>
+            </div>
+            
+            <div className="relative z-10 flex flex-col h-full justify-between">
+                <div>
+                    <div className="flex justify-between items-start mb-4">
+                        <span className="bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold border border-white/20 shadow-sm">
+                            {student.grade}. Sınıf
+                        </span>
+                        {hasStudentMessage && (
+                            <span className="bg-blue-500 text-white text-[10px] px-2 py-1 rounded-full font-bold animate-pulse shadow-lg flex items-center border border-blue-400">
+                                <MessageSquare className="w-3 h-3 mr-1"/> 1 Mesaj
+                            </span>
+                        )}
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-1.5 mt-1"><div className={`h-1.5 rounded-full ${pct >= 100 ? 'bg-green-500' : 'bg-indigo-500'}`} style={{ width: `${Math.min(pct, 100)}%` }}></div></div>
+                    
+                    <h3 className="text-2xl font-bold mb-1 leading-tight drop-shadow-md">{student.name}</h3>
+                    <p className="text-indigo-200 text-sm font-medium">Kamp İlerlemesi</p>
+                </div>
+
+                <div className="mt-auto">
+                    <div className="flex justify-between items-end mb-2">
+                        <div className="text-5xl font-black drop-shadow-md">{pct}%</div>
+                        <div className="text-sm font-bold opacity-90">{completed}/{totalDays} Gün</div>
+                    </div>
+                    <div className="w-full bg-black/30 rounded-full h-3 mb-6 shadow-inner border border-white/10">
+                        <div className={`h-3 rounded-full transition-all duration-1000 ${pct >= 100 ? 'bg-green-400' : 'bg-gradient-to-r from-indigo-400 to-purple-400 shadow-[0_0_10px_rgba(167,139,250,0.5)]'}`} style={{ width: `${Math.min(pct, 100)}%` }}></div>
+                    </div>
+                    
+                    <button onClick={() => setIsFlipped(true)} className="w-full bg-white text-indigo-900 py-3.5 rounded-xl font-bold flex items-center justify-center hover:bg-indigo-50 transition shadow-[0_4px_15px_rgba(255,255,255,0.2)] hover:scale-[1.02] active:scale-95">
+                        Detayları Gör <RotateCcw className="w-4 h-4 ml-2" />
+                    </button>
                 </div>
             </div>
-            {expanded ? <ChevronUp className="text-slate-400 w-5 h-5 ml-3"/> : <ChevronDown className="text-slate-400 w-5 h-5 ml-3"/>}
         </div>
-        {expanded && (
-            <div className="bg-slate-50 p-4 border-t border-slate-100 space-y-4">
-                {hasStudentMessage && (<div className="bg-white p-3 rounded-lg border border-blue-200 flex gap-2"><MessageSquare className="w-5 h-5 text-blue-500 mt-1" /><div><span className="text-xs font-bold text-blue-600 block uppercase">Öğrencinin Mesajı</span><p className="text-sm text-slate-700">{student.studentMessage}</p></div></div>)}
-                
-                <div className="flex gap-2">
-                    <button onClick={() => openCustomProgram(student)} className="flex-1 bg-violet-600 text-white py-2 rounded-lg font-bold text-xs flex items-center justify-center hover:bg-violet-700 transition shadow-sm"><Target className="w-4 h-4 mr-2" /> Bireysel Program Ayarla</button>
-                    <button onClick={handleDownloadReport} className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-bold text-xs flex items-center justify-center hover:bg-orange-600 transition shadow-sm"><ImageIcon className="w-4 h-4 mr-2" /> Karne İndir</button>
-                </div>
-                
-                <div className="bg-white p-3 rounded-lg border border-slate-200 max-h-60 overflow-y-auto">
-                    <h5 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center"><History className="w-3 h-3 mr-1"/> Geçmiş Günler</h5>
-                    <div className="space-y-2">
-                        {daysArray.map(day => {
-                            const dayData = student.days?.[day];
-                            if (!dayData) return null;
-                            const dayCurriculumActive = student.customProgram?.[day] || curriculum;
 
-                            return (
-                                <div key={day} className="text-xs border-b border-slate-100 last:border-0 pb-2 mb-2">
-                                    <div className="font-bold text-indigo-600 mb-1">{day}. Gün Özeti:</div>
-                                    <div className="flex flex-col gap-1">
-                                        {safeArray(dayCurriculumActive).map((item, idx) => {
-                                            const meta = getSubjectInfo(item);
-                                            const key = item.id;
-                                            
-                                            if (meta.type === 'question') {
-                                                const correct = dayData[key + 'True']; const wrong = dayData[key + 'False'];
-                                                if (correct || wrong) return <span key={key + idx} className="flex items-center text-slate-700"><CheckCircle2 className="w-3 h-3 text-green-500 mr-1"/> {meta.label}: {correct || 0}D {wrong || 0}Y</span>
-                                            }
-                                            else if (meta.type === 'selection') {
-                                                const selection = dayData[key]; const duration = dayData[key + 'Duration'];
-                                                if (selection) return <span key={key + idx} className="flex items-center text-slate-700"><CheckCircle2 className="w-3 h-3 text-green-500 mr-1"/> {meta.label}: {selection} ({duration || 30} dk)</span>
-                                            }
-                                            else if (meta.type === 'duration') {
-                                                if (dayData[key] === true) return <span key={key + idx} className="flex items-center text-slate-700"><CheckCircle2 className="w-3 h-3 text-green-500 mr-1"/> {meta.label}: Tamamlandı</span>
-                                            }
-                                            return <span key={key + idx} className="flex items-center text-red-400 opacity-70"><XCircle className="w-3 h-3 mr-1"/> {meta.label}: Yapılmadı</span>
-                                        })}
-                                    </div>
-                                </div>
-                            )
-                        })}
+        {/* ARKA YÜZ */}
+        <div className="tc-back">
+            {/* Header */}
+            <div className="bg-white p-4 flex justify-between items-center border-b border-slate-200 shrink-0 shadow-sm relative z-40">
+                <div className="font-bold text-slate-800 text-sm flex items-center">
+                    {/* Hamburger Menü (User İkonu Yerine) */}
+                    <input type="checkbox" id={`ham-${student.id}`} className="ham-input" checked={isMenuOpen} onChange={(e) => setIsMenuOpen(e.target.checked)} />
+                    <label htmlFor={`ham-${student.id}`} className="ham-toggle">
+                        <div className="ham-bars ham-bar1"></div>
+                        <div className="ham-bars ham-bar2"></div>
+                        <div className="ham-bars ham-bar3"></div>
+                    </label>
+                    <span className="ml-1 truncate">{student.name}</span>
+                </div>
+                <button onClick={() => { setIsFlipped(false); setIsMenuOpen(false); }} className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 transition active:scale-95">
+                    <X className="w-5 h-5"/>
+                </button>
+            </div>
+
+            <div className="relative flex-1 min-h-0 flex flex-col bg-slate-50 overflow-hidden">
+                
+                {/* Arka Plan Karartması (Menü Açıkken) */}
+                {isMenuOpen && (
+                    <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[1px] z-20 transition-opacity" onClick={() => setIsMenuOpen(false)} />
+                )}
+
+                {/* Yandan Açılan Kaydırmalı Menü (UIVERSE) */}
+                <div className={`side-panel ${isMenuOpen ? 'open' : ''}`}>
+                    <div className="p-2 flex-1 overflow-y-auto">
+                        <div className="action-menu">
+                            <ul className="list">
+                                <li className="element primary" onClick={() => { openCustomProgram(student); setIsMenuOpen(false); }}>
+                                    <Target />
+                                    <span className="label">Bireysel Prog.</span>
+                                </li>
+                                <li className="element warning" onClick={() => { handleDownloadReport(); setIsMenuOpen(false); }}>
+                                    <ImageIcon />
+                                    <span className="label">Karne İndir</span>
+                                </li>
+                                <li className="element info" onClick={() => { openMessagePrompt(); setIsMenuOpen(false); }}>
+                                    <Send />
+                                    <span className="label">Öğrenciye Not Gönder</span>
+                                </li>
+                            </ul>
+                            <div className="separator"></div>
+                            <ul className="list">
+                                <li className="element default" onClick={() => { handleResetSecure(); setIsMenuOpen(false); }}>
+                                    <RotateCcw />
+                                    <span className="label">İlerlemeyi Sıfırla</span>
+                                </li>
+                                <li className="element danger" onClick={() => { 
+                                    setIsMenuOpen(false); 
+                                    showDialog({type: 'confirm', message: 'Bu öğrenciyi silmek istediğinize emin misiniz?', onConfirm: () => onDelete(student.id)}); 
+                                }}>
+                                    <Trash2 />
+                                    <span className="label">Öğrenciyi Sil</span>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
-                <div>
-                    {hasActiveTeacherMessage && (
-                        <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 flex items-start gap-2">
-                            <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                            <div><strong>Mevcut Notun:</strong> {student.teacherMessage} <br/><span className="text-[10px] opacity-75">Bu not gönderildikten 24 saat sonra öğrenciden otomatik gizlenir.</span></div>
+
+                {/* Geçmiş Veriler (Artık tüm alanı kaplıyor) */}
+                <div className="overflow-y-auto p-4 flex-1 space-y-4 text-sm relative">
+                    {hasStudentMessage && (
+                        <div className="bg-white p-3 rounded-xl border border-blue-200 flex gap-2 shadow-sm shrink-0">
+                            <MessageSquare className="w-5 h-5 text-blue-500 mt-1 shrink-0" />
+                            <div>
+                                <span className="text-[10px] font-bold text-blue-600 block uppercase">Öğrencinin Mesajı</span>
+                                <p className="text-xs text-slate-700 font-medium">{student.studentMessage}</p>
+                            </div>
                         </div>
                     )}
-                    <div className="flex gap-2 mb-2">
-                        <input className="flex-1 text-sm p-2 border rounded-lg outline-none focus:border-slate-400" placeholder="Öğrenciye yeni not..." value={msg} onChange={e=>setMsg(e.target.value)} />
+
+                    {hasActiveTeacherMessage && (
+                        <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-800 flex items-start gap-2 shadow-sm shrink-0">
+                            <Info className="w-4 h-4 mt-0.5 shrink-0 text-indigo-600" />
+                            <div>
+                                <span className="text-[10px] font-bold text-indigo-600 block uppercase">Gönderilen Not</span>
+                                <p className="text-xs text-slate-700 font-medium mt-0.5">{student.teacherMessage}</p>
+                                <span className="text-[9px] opacity-75 mt-1 block">Bu not 24 saat sonra gizlenecektir.</span>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm shrink-0 min-h-full">
+                        <h5 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center border-b pb-2"><History className="w-4 h-4 mr-1.5 text-slate-400"/> Geçmiş Günler</h5>
+                        <div className="space-y-3">
+                            {daysArray.map(day => {
+                                const dayData = student.days?.[day];
+                                if (!dayData) return null;
+                                const dayCurriculumActive = student.customProgram?.[day] || curriculum;
+
+                                return (
+                                    <div key={day} className="text-xs border-b border-slate-50 last:border-0 pb-3 mb-3">
+                                        <div className="font-bold text-indigo-600 mb-1.5 bg-indigo-50 px-2 py-0.5 rounded inline-block">{day}. Gün</div>
+                                        <div className="flex flex-col gap-1.5 pl-1">
+                                            {safeArray(dayCurriculumActive).map((item, idx) => {
+                                                const meta = getSubjectInfo(item);
+                                                const key = item.id;
+                                                
+                                                if (meta.type === 'question') {
+                                                    const correct = dayData[key + 'True']; const wrong = dayData[key + 'False'];
+                                                    if (correct || wrong) return <div key={key + idx} className="flex items-start text-slate-700 leading-tight"><CheckCircle2 className="w-3.5 h-3.5 text-green-500 mr-1.5 shrink-0 mt-px"/> <span><span className="font-semibold">{meta.label}:</span> {correct || 0}D {wrong || 0}Y</span></div>
+                                                }
+                                                else if (meta.type === 'selection') {
+                                                    const selection = dayData[key]; const duration = dayData[key + 'Duration'];
+                                                    if (selection) return <div key={key + idx} className="flex items-start text-slate-700 leading-tight"><CheckCircle2 className="w-3.5 h-3.5 text-green-500 mr-1.5 shrink-0 mt-px"/> <span><span className="font-semibold">{meta.label}:</span> {selection} ({duration || 30}dk)</span></div>
+                                                }
+                                                else if (meta.type === 'duration') {
+                                                    if (dayData[key] === true) return <div key={key + idx} className="flex items-start text-slate-700 leading-tight"><CheckCircle2 className="w-3.5 h-3.5 text-green-500 mr-1.5 shrink-0 mt-px"/> <span><span className="font-semibold">{meta.label}:</span> Tamamlandı</span></div>
+                                                }
+                                                return <div key={key + idx} className="flex items-start text-red-400 opacity-70 leading-tight"><XCircle className="w-3.5 h-3.5 mr-1.5 shrink-0 mt-px"/> <span><span className="font-semibold">{meta.label}:</span> Yapılmadı</span></div>
+                                            })}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
                     </div>
-                    <button onClick={sendFeedback} className="w-full bg-slate-800 text-white text-sm py-2 rounded-lg font-bold hover:bg-slate-700 transition">Not Gönder</button>
-                </div>
-                
-                <div className="flex gap-2">
-                    <button onClick={handleResetSecure} className="flex-1 text-slate-600 text-xs font-bold py-2 border border-slate-300 rounded-lg hover:bg-slate-100 transition flex items-center justify-center"><RotateCcw className="w-3 h-3 mr-1"/> İlerlemeyi Sıfırla</button>
-                    <button onClick={() => showDialog({type: 'confirm', message: 'Bu öğrenciyi silmek istediğinize emin misiniz?', onConfirm: () => onDelete(student.id)})} className="flex-1 text-red-500 text-xs font-bold py-2 border border-red-200 rounded-lg hover:bg-red-50 transition">Öğrenciyi Sil</button>
                 </div>
             </div>
-        )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -1272,7 +1758,13 @@ function DayEditModal({ day, curriculum, initialData, onClose, onSave }) {
                 }
                 if (meta.type === 'duration') {
                     return (
-                        <div key={key + idx} onClick={() => setForm(p => ({...p, [key]: !p[key]}))} className={`flex items-center gap-3 p-3 rounded-xl border ${form[key] ? 'bg-green-50 border-green-200' : 'border-slate-100'}`}><div className={`w-5 h-5 rounded border flex items-center justify-center ${form[key] ? 'bg-green-500 border-green-500' : 'bg-white'}`}>{form[key] && <CheckCircle2 className="w-3 h-3 text-white"/>}</div><div><span className="text-sm font-bold text-slate-700 block">{meta.label}</span><span className="text-xs text-slate-400">Hedef: {item.target} dk</span></div></div>
+                        <div key={key + idx} onClick={() => setForm(p => ({...p, [key]: !p[key]}))} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${form[key] ? 'bg-green-50 border-green-200' : 'border-slate-100 hover:border-green-200'}`}>
+                            <div className={`w-5 h-5 rounded border flex items-center justify-center ${form[key] ? 'bg-green-500 border-green-500' : 'bg-white'}`}>{form[key] && <CheckCircle2 className="w-3 h-3 text-white"/>}</div>
+                            <div>
+                                <span className="text-sm font-bold text-slate-700 block">{meta.label}</span>
+                                <span className="text-xs text-slate-400">Hedef: {item.target} dk</span>
+                            </div>
+                        </div>
                     );
                 }
                 return (
@@ -1289,9 +1781,38 @@ function DayEditModal({ day, curriculum, initialData, onClose, onSave }) {
   );
 }
 
+// LOGO BİLEŞENİ
+function AppLogo({ className, fallbackClassName }) {
+    const [imgFailed, setImgFailed] = useState(false);
+    
+    if (imgFailed) {
+        return (
+            <div className={`flex items-center justify-center bg-white ${fallbackClassName}`}>
+                <svg viewBox="0 0 100 100" className={className || "w-full h-full"} fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="50,5 53,15 63,15 55,22 58,32 50,26 42,32 45,22 37,15 47,15" fill="#ca8a04"/>
+                    <path d="M55,60 L85,30 M85,30 L70,30 M85,30 L85,45" stroke="#ca8a04" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M50,80 Q30,60 50,40 Q60,30 50,20" stroke="#0f766e" strokeWidth="4" strokeLinecap="round"/>
+                    <path d="M50,40 Q40,30 50,20 Q60,30 50,40" fill="#0f766e"/>
+                    <path d="M20,90 Q35,85 50,90 Q65,85 80,90 L80,80 Q65,75 50,80 Q35,75 20,80 Z" stroke="#0f766e" strokeWidth="3" fill="none" strokeLinejoin="round"/>
+                </svg>
+            </div>
+        )
+    }
+
+    return (
+        <img 
+            src="./logo.jpeg" 
+            alt="Kamp Takip Logosu" 
+            className={`${className} object-cover bg-white`}
+            onError={() => setImgFailed(true)} 
+        />
+    )
+}
+
 function LoginScreen({ setRole, studentName, setStudentName, studentGrade, setStudentGrade, showDialog }) {
   const [activeTab, setActiveTab] = useState('student');
   const [pass, setPass] = useState('');
+  const [showPassword, setShowPassword] = useState(false); 
   
   useEffect(() => {
     const savedRole = localStorage.getItem('kamp_role');
@@ -1321,264 +1842,45 @@ function LoginScreen({ setRole, studentName, setStudentName, studentGrade, setSt
 
   return (
     <div className="p-6 flex flex-col h-full justify-center bg-white">
-        <div className="text-center mb-8"><h2 className="text-2xl font-bold text-slate-800 mb-2">Hoşgeldiniz 👋</h2><p className="text-slate-500 text-sm">Başlamak için lütfen giriş yapın.</p></div>
+        <div className="text-center mb-8">
+            <AppLogo className="w-24 h-24 mx-auto mb-4 rounded-2xl shadow-md p-1" fallbackClassName="w-24 h-24 mx-auto mb-4 rounded-2xl shadow-md border border-slate-100 p-2" />
+            <h2 className="text-4xl font-bold text-indigo-600 mb-1 spencerian">Mrt Akademi</h2>
+            <p className="text-slate-500 text-sm mt-2">Başlamak için lütfen giriş yapın.</p>
+        </div>
         <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
             <button onClick={() => setActiveTab('student')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${activeTab === 'student' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Öğrenci</button>
             <button onClick={() => setActiveTab('teacher')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${activeTab === 'teacher' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Öğretmen</button>
         </div>
         {activeTab === 'student' ? (
-            <div className="space-y-4">
-                <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Ad Soyad</label><div className="relative mt-1"><User className="absolute left-3 top-3.5 text-slate-400 w-5 h-5" /><input type="text" value={studentName} onChange={(e)=>setStudentName(e.target.value)} className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Örn: Ali Yılmaz" /></div></div>
-                <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Sınıf</label><div className="grid grid-cols-4 gap-2 mt-1">{[1,2,3,4,5,6,7,8].map(g=><button key={g} onClick={()=>setStudentGrade(g.toString())} className={`py-2 rounded-lg font-bold border ${studentGrade===g.toString()?'bg-indigo-600 text-white border-indigo-600':'bg-white text-slate-600 hover:border-indigo-300'}`}>{g}.</button>)}</div></div>
-                <button onClick={()=>handleLogin('student')} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-lg mt-2 active:scale-95 transition">Başla</button>
+            <div className="space-y-2">
+                <div className="mb-4">
+                    <WaveInput value={studentName} onChange={(e)=>setStudentName(e.target.value)} label="Ad Soyad" icon={User} />
+                </div>
+                <div><label className="text-xs font-bold text-slate-500 uppercase ml-1 block mb-1">Sınıf Seçimi</label><div className="grid grid-cols-4 gap-2">{[1,2,3,4,5,6,7,8].map(g=><button key={g} onClick={()=>setStudentGrade(g.toString())} className={`py-2 rounded-lg font-bold border ${studentGrade===g.toString()?'bg-indigo-600 text-white border-indigo-600':'bg-white text-slate-600 hover:border-indigo-300'}`}>{g}. Sınıf</button>)}</div></div>
+                <button onClick={()=>handleLogin('student')} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-lg mt-4 active:scale-95 transition">Başla</button>
             </div>
         ) : (
-            <div className="space-y-4">
-                <div><label className="text-xs font-bold text-slate-500 uppercase ml-1">Şifre</label><div className="relative mt-1"><LockKeyhole className="absolute left-3 top-3.5 text-slate-400 w-5 h-5" /><input type="password" value={pass} onChange={(e)=>setPass(e.target.value)} className="w-full pl-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="••••" /></div></div>
-                <button onClick={()=>handleLogin('teacher')} className="w-full bg-slate-800 text-white font-bold py-3.5 rounded-xl shadow-lg mt-2 active:scale-95 transition">Giriş Yap</button>
+            <div className="space-y-2">
+                <div className="mb-4">
+                    <WaveInput 
+                        type={showPassword ? "text" : "password"} 
+                        value={pass} 
+                        onChange={(e)=>setPass(e.target.value)} 
+                        label="Öğretmen Şifresi" 
+                        icon={LockKeyhole} 
+                        rightElement={
+                            <label className="uiverse-checkbox" style={{ '--chk-color': '#4f46e5', '--chk-bg': '#4f46e51f', fontSize: '14px' }}>
+                                <input type="checkbox" checked={showPassword} onChange={() => setShowPassword(!showPassword)} />
+                                <div className="uiverse-checkmark"></div>
+                            </label>
+                        }
+                    />
+                </div>
+                <button onClick={()=>handleLogin('teacher')} className="w-full bg-slate-800 text-white font-bold py-3.5 rounded-xl shadow-lg mt-4 active:scale-95 transition">Giriş Yap</button>
             </div>
         )}
     </div>
   );
-}
-
-function StudentApp({ user, studentName, grade, curriculum, announcementData, dailyQuestion, generalSettings, showDialog }) {
-  const [activeTab, setActiveTab] = useState('home');
-  const [data, setData] = useState(null); 
-  const [selectedDay, setSelectedDay] = useState(null);
-  const [showMsgModal, setShowMsgModal] = useState(false); 
-  const [messageText, setMessageText] = useState("");
-  const [allStudents, setAllStudents] = useState([]); 
-  const docId = generateStudentId(studentName, grade);
-  
-  const totalProgramDays = (parseInt(generalSettings?.programWeeks) || 2) * 7;
-  const daysArray = Array.from({ length: totalProgramDays }, (_, i) => i + 1);
-  const isLeaderboardActive = generalSettings?.isLeaderboardActive !== false;
-
-  const studentGradeStr = grade.toString();
-  const myCurriculum = safeArray(
-    curriculum?.[studentGradeStr] || 
-    curriculum?.[7] || 
-    DEFAULT_CURRICULUM[7] ||
-    []
-  );
-
-  useEffect(() => {
-    if (!user) return;
-    const docRef = doc(db, 'artifacts', APP_ID, 'public_data', docId);
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) { setData(docSnap.data()); } 
-      else {
-        const newData = { id: docId, name: studentName, grade: grade, createdAt: serverTimestamp(), days: {} };
-        setDoc(docRef, newData, { merge: true }).catch(e => console.error(e));
-        setData(newData);
-      }
-    }, (err) => console.log("Student Data Error", err));
-    return () => unsubscribe();
-  }, [user, docId, studentName, grade]);
-
-  useEffect(() => {
-      if (activeTab === 'leaderboard') {
-          const colRef = collection(db, 'artifacts', APP_ID, 'public_data');
-          const unsub = onSnapshot(colRef, (snap) => {
-              setAllStudents(snap.docs.map(d => ({id: d.id, ...d.data()})));
-          });
-          return () => unsub();
-      }
-  }, [activeTab]);
-
-  useEffect(() => {
-      if (!isLeaderboardActive && activeTab === 'leaderboard') {
-          setActiveTab('home');
-      }
-  }, [isLeaderboardActive, activeTab]);
-
-  const handleSendMessage = async () => {
-    if (!messageText.trim()) return;
-    const docRef = doc(db, 'artifacts', APP_ID, 'public_data', docId);
-    await setDoc(docRef, { studentMessage: messageText, studentMessageTime: serverTimestamp() }, { merge: true });
-    showDialog({type:'alert', message:'Mesajınız iletildi.'});
-    setMessageText("");
-    setShowMsgModal(false);
-  };
-
-  const saveDayData = async (day, dayData) => {
-    setData(prev => ({ ...prev, days: { ...prev.days, [day]: dayData } }));
-    const docRef = doc(db, 'artifacts', APP_ID, 'public_data', docId);
-    await setDoc(docRef, { days: { [day]: dayData }, lastUpdated: serverTimestamp() }, { merge: true });
-    setSelectedDay(null);
-    showDialog({type:'alert', message:'Kayıt başarılı!'});
-  };
-
-  if (!data) return <div className="p-8 text-center text-slate-400"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-indigo-500" />Veriler Hazırlanıyor...</div>;
-
-  return (
-    <>
-      <div className="p-4 space-y-6 pb-24">
-        {activeTab === 'home' && <HomeView data={data} grade={grade} studentName={studentName} defaultCurriculum={myCurriculum} announcementData={announcementData} dailyQuestion={dailyQuestion} studentId={docId} onOpenMsg={() => setShowMsgModal(true)} generalSettings={generalSettings} totalDays={totalProgramDays} showDialog={showDialog} />}
-        {activeTab === 'calendar' && <CalendarView data={data} onDayClick={setSelectedDay} daysArray={daysArray} />}
-        {isLeaderboardActive && activeTab === 'leaderboard' && <LeaderboardView students={allStudents} currentStudentId={docId} currentGrade={grade} />}
-        {activeTab === 'badges' && <BadgesView data={data} grade={grade} totalDays={totalProgramDays} />}
-      </div>
-      
-      {selectedDay && <DayEditModal day={selectedDay} curriculum={data.customProgram?.[selectedDay] || myCurriculum} initialData={data.days?.[selectedDay]} onClose={() => setSelectedDay(null)} onSave={saveDayData} />}
-      
-      {showMsgModal && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-              <div className="bg-white w-full max-w-sm rounded-2xl p-4">
-                  <h3 className="font-bold text-lg mb-2">Öğretmene Mesaj</h3>
-                  <textarea className="w-full p-2 border rounded-lg mb-4 text-sm" rows="4" placeholder="Mesajınızı yazın..." value={messageText} onChange={e=>setMessageText(e.target.value)}></textarea>
-                  <div className="flex gap-2">
-                      <button onClick={()=>setShowMsgModal(false)} className="flex-1 bg-slate-200 py-2 rounded-lg font-bold text-slate-600">İptal</button>
-                      <button onClick={handleSendMessage} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-bold">Gönder</button>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-2 flex justify-around items-center z-40 w-full max-w-md mx-auto shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <NavButton icon={Home} label="Ana Sayfa" isActive={activeTab === 'home'} onClick={() => setActiveTab('home')} />
-        <NavButton icon={Calendar} label="Takvim" isActive={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} />
-        {isLeaderboardActive && <NavButton icon={Crown} label="Sıralama" isActive={activeTab === 'leaderboard'} onClick={() => setActiveTab('leaderboard')} />}
-        <NavButton icon={Award} label="Rozetler" isActive={activeTab === 'badges'} onClick={() => setActiveTab('badges')} />
-      </div>
-    </>
-  );
-}
-
-function TeacherApp({ user, curriculum, currentAnnouncementData, generalSettings, showDialog }) {
-    const [students, setStudents] = useState([]);
-    const [search, setSearch] = useState("");
-    const [isEditingProgram, setIsEditingProgram] = useState(false);
-    const [isLGSEditorOpen, setIsLGSEditorOpen] = useState(false);
-    const [editingStudentProgram, setEditingStudentProgram] = useState(null); 
-
-    const [newAnnouncement, setNewAnnouncement] = useState("");
-    const [questionText, setQuestionText] = useState("");
-    const [targetGrade, setTargetGrade] = useState("all");
-    const [questionImage, setQuestionImage] = useState(null);
-    const [questionType, setQuestionType] = useState("text"); 
-    const [correctOption, setCorrectOption] = useState("A");
-
-    useEffect(() => {
-        if(!user) return;
-        const colRef = collection(db, 'artifacts', APP_ID, 'public_data');
-        const unsub = onSnapshot(colRef, (snap) => {
-            const list = snap.docs.map(d => ({id: d.id, ...d.data()}));
-            setStudents(list.sort((a,b) => (parseInt(a.grade)||0) - (parseInt(b.grade)||0) || a.name.localeCompare(b.name)));
-        }, (err) => console.log("List Error", err));
-        return () => unsub();
-    }, [user]);
-
-    const handleSaveAnnouncement = async () => {
-        await setDoc(doc(db, 'artifacts', APP_ID, 'settings', 'announcement'), { text: newAnnouncement, timestamp: serverTimestamp() });
-        setNewAnnouncement("");
-        showDialog({type:'alert', message:'Duyuru yayınlandı!'});
-    };
-
-    const handleImageUpload = async (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const base64 = await compressImage(file);
-            setQuestionImage(base64);
-        }
-    };
-
-    const handleSendQuestion = async () => {
-        await setDoc(doc(db, 'artifacts', APP_ID, 'settings', 'dailyQuestion'), { 
-            text: questionText, 
-            image: questionImage, 
-            targetGrade: targetGrade,
-            type: questionType,
-            correctOption: questionType === 'test' ? correctOption : null,
-            timestamp: serverTimestamp() 
-        });
-        showDialog({type:'alert', message:'Soru gönderildi!'});
-        setQuestionText("");
-        setQuestionImage(null);
-    };
-
-    const deleteStudent = async (studentId) => {
-        await deleteDoc(doc(db, 'artifacts', APP_ID, 'public_data', studentId));
-        showDialog({type:'alert', message:'Öğrenci silindi.'});
-    };
-    
-    const resetStudentProgress = async (studentId) => {
-        const docRef = doc(db, 'artifacts', APP_ID, 'public_data', studentId);
-        await updateDoc(docRef, { days: deleteField(), customProgram: deleteField() });
-        showDialog({type:'alert', message:'Öğrenci programı sıfırlandı.'});
-    };
-
-    const filteredStudents = students.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
-    const totalStudents = students.length;
-    const activeToday = students.filter(s => s.lastUpdated && new Date(s.lastUpdated.seconds * 1000).toDateString() === new Date().toDateString()).length;
-    const totalDays = (parseInt(generalSettings?.programWeeks) || 2) * 7;
-    const isAnnouncementActive = currentAnnouncementData && isContentValid(currentAnnouncementData.timestamp);
-
-    if (isEditingProgram) return <ProgramEditorModal curriculum={curriculum} onClose={() => setIsEditingProgram(false)} showDialog={showDialog} />;
-    if (isLGSEditorOpen) return <LGSCustomEditorModal initialSettings={generalSettings} onClose={() => setIsLGSEditorOpen(false)} showDialog={showDialog} />;
-    if (editingStudentProgram) return <StudentProgramEditorModal student={editingStudentProgram} globalCurriculum={curriculum} totalDays={totalDays} onClose={() => setEditingStudentProgram(null)} showDialog={showDialog} />;
-
-    return (
-        <div className="p-4 pb-20 space-y-4">
-            <div className="bg-slate-800 text-white p-6 rounded-2xl shadow-lg">
-                <div className="flex justify-between items-start mb-4">
-                    <div><h2 className="font-bold text-xl mb-1">Öğretmen Paneli</h2><div className="flex gap-4 mt-2 text-sm"><div><span className="block text-xl font-bold">{totalStudents}</span><span className="text-slate-400 text-xs">Toplam</span></div><div><span className="block text-xl font-bold text-green-400">{activeToday}</span><span className="text-slate-400 text-xs">Aktif</span></div></div></div>
-                    <button onClick={() => setIsEditingProgram(true)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center transition"><Settings className="w-3 h-3 mr-1" /> Şablonlar</button>
-                </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-4">
-                 <h3 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center"><Sliders className="w-3 h-3 mr-2"/> Kamp & Müfredat Ayarları</h3>
-                 <div className="flex gap-4 items-center">
-                    <button 
-                        onClick={() => setIsLGSEditorOpen(true)}
-                        className="w-full bg-blue-50 text-blue-600 border border-blue-200 py-3 rounded-xl font-bold flex items-center justify-center hover:bg-blue-100 transition"
-                    >
-                        <Edit3 className="w-4 h-4 mr-2" />
-                        Kamp & LGS Programını Özelleştir
-                    </button>
-                 </div>
-                 <div className="text-[10px] text-slate-400 text-center">
-                     Mevcut Süre: <span className="font-bold text-slate-600">{generalSettings?.programWeeks || 2} Hafta</span> | LGS Konuları: <span className="font-bold text-slate-600">{generalSettings?.customLGS ? 'Özel Seçim' : 'Varsayılan'}</span>
-                 </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-4">
-                <div>
-                    <h3 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center"><Bell className="w-3 h-3 mr-2"/> Duyuru Panosu</h3>
-                    {isAnnouncementActive && (
-                        <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-start gap-2">
-                            <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                            <div><strong>Aktif Duyuru:</strong> {currentAnnouncementData.text} <br/><span className="text-[10px] opacity-75">Bu duyuru 24 saat sonra otomatik gizlenecek.</span></div>
-                        </div>
-                    )}
-                    <div className="flex gap-2">
-                        <input className="flex-1 text-sm p-2 border rounded-lg outline-none" placeholder="Yeni duyuru metni..." value={newAnnouncement} onChange={e=>setNewAnnouncement(e.target.value)} />
-                        <button onClick={handleSaveAnnouncement} className="bg-red-500 text-white px-3 py-2 rounded-lg text-xs font-bold">Yayınla</button>
-                    </div>
-                </div>
-                <div className="pt-4 border-t border-slate-100">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center"><HelpCircle className="w-3 h-3 mr-2"/> Günün Sorusu</h3>
-                    <div className="flex flex-col gap-2 mb-2">
-                        <div className="flex gap-2">
-                            <select className="text-xs p-2 border rounded-lg bg-white" value={targetGrade} onChange={e=>setTargetGrade(e.target.value)}><option value="all">Tüm Sınıflar</option>{[1,2,3,4,5,6,7,8].map(g=><option key={g} value={g.toString()}>{g}. Sınıf</option>)}</select>
-                            <input className="flex-1 text-sm p-2 border rounded-lg outline-none" placeholder="Soru metni..." value={questionText} onChange={e=>setQuestionText(e.target.value)} />
-                        </div>
-                        <div className="flex gap-2 items-center">
-                            <select className="text-xs p-2 border rounded-lg bg-white" value={questionType} onChange={e=>setQuestionType(e.target.value)}><option value="text">Klasik</option><option value="test">Test (A,B,C,D)</option></select>
-                            {questionType === 'test' && (<select className="text-xs p-2 border rounded-lg bg-white bg-green-50 text-green-700 font-bold" value={correctOption} onChange={e=>setCorrectOption(e.target.value)}><option value="A">Doğru: A</option><option value="B">Doğru: B</option><option value="C">Doğru: C</option><option value="D">Doğru: D</option></select>)}
-                        </div>
-                        <div className="flex items-center gap-2"><label className="flex items-center justify-center bg-indigo-50 text-indigo-600 px-3 py-2 rounded-lg text-xs font-bold cursor-pointer hover:bg-indigo-100 transition w-full border border-indigo-200"><Camera className="w-4 h-4 mr-2" />{questionImage ? "Fotoğraf Seçildi" : "Fotoğraf Ekle"}<input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label></div>
-                    </div>
-                    <button onClick={handleSendQuestion} className="w-full bg-violet-600 text-white px-3 py-2 rounded-lg text-xs font-bold">Soruyu Gönder</button>
-                </div>
-            </div>
-            <div className="relative"><Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" /><input type="text" placeholder="Öğrenci ara..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-10 p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-800 outline-none" /></div>
-            
-            {filteredStudents.map(std => <StudentDetailRow key={std.id} student={std} onDelete={deleteStudent} onReset={resetStudentProgress} curriculum={curriculum?.[String(std.grade)] || DEFAULT_CURRICULUM[7]} totalDays={totalDays} showDialog={showDialog} openCustomProgram={setEditingStudentProgram} />)}
-        </div>
-    )
 }
 
 const App = () => {
@@ -1663,10 +1965,17 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex justify-center selection:bg-indigo-100">
+      <UiverseStyles />
       <div className="w-full max-w-md bg-white min-h-screen shadow-2xl relative flex flex-col">
         
         <header className="bg-indigo-600 text-white p-4 pt-8 sticky top-0 z-30 shadow-md flex justify-between items-center">
-            <div className="flex items-center space-x-2"><div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm"><GraduationCap className="w-6 h-6 text-white" /></div><div><h1 className="text-lg font-bold leading-none">Kamp Takip</h1><span className="text-[10px] opacity-80 uppercase tracking-wider">V44 Final</span></div></div>
+            <div className="flex items-center space-x-2">
+                <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm"><GraduationCap className="w-6 h-6 text-white" /></div>
+                <div>
+                    <h1 className="text-3xl font-bold leading-none spencerian tracking-wide">Mrt Akademi</h1>
+                    <span className="text-[10px] opacity-80 uppercase tracking-wider block mt-1">V44 Final</span>
+                </div>
+            </div>
             <div className="flex items-center space-x-2">
                 {!role && <button onClick={() => setShowInstallModal(true)} className="flex items-center text-xs bg-indigo-500 hover:bg-indigo-400 px-3 py-1.5 rounded-full"><Download className="w-3 h-3 mr-1" /> İndir</button>}
                 <button onClick={() => setShowGuide(true)} className="p-1.5 bg-indigo-500 rounded-full hover:bg-indigo-400"><HelpCircle className="w-4 h-4 text-white" /></button>
