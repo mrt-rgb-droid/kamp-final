@@ -2,11 +2,30 @@
 <html lang="tr">
   <head>
     <meta charset="utf-8" />
+    <!-- Sekme İkonu (Favicon) -->
+    <link rel="icon" href="%PUBLIC_URL%/logo.jpeg" />
+    
+    <!-- Mobil cihazlarda yakınlaştırmayı kapatıp tam uygulama hissi verir -->
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
-    <title>Kamp Takip</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tarayıcı üst bar rengi (Mrt Akademi İndigo rengi) -->
+    <meta name="theme-color" content="#4f46e5" />
+    
+    <meta name="description" content="Mrt Akademi - LGS Kamp ve Soru Takip Sistemi" />
+    
+    <!-- iOS (iPhone) cihazlar için Ana Ekrana Ekleme İkonu -->
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo.jpeg" />
+    
+    <!-- PWA (Uygulama olarak indirme) bağlantısı -->
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <title>Mrt Akademi Kamp</title>
   </head>
   <body>
+    <noscript>Bu uygulamayı çalıştırmak için tarayıcınızda JavaScript'i etkinleştirmeniz gerekir.</noscript>
+    
+    <!-- React uygulamasının içine yükleneceği ana kutu -->
     <div id="root"></div>
+    
   </body>
 </html>
