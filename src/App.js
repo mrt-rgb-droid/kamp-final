@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { 
   Calculator, BookOpen, FlaskConical, Leaf, Users, CheckCircle2, 
   Download, LogOut, User, Calendar, Home, Star, MessageSquare, 
-  ChevronUp, ChevronDown, X, Share, MoreVertical, Phone, AlertTriangle, 
+  ChevronDown, X, Share, MoreVertical, Phone, AlertTriangle, 
   RefreshCcw, LockKeyhole, GraduationCap, Lightbulb, Trophy, Flame, 
   Target, Zap, Search, Award, Loader2, Trash2, TrendingUp, Settings, Plus, Save, Activity,
   History, Edit3, Bell, Check, List, Clock, XCircle, HelpCircle, Info, Gift, Image as ImageIcon, Camera, Palette, FileText, Send, Lock, Crown, Gem, RotateCcw, CalendarDays, MapPin, Globe, Scroll, Heart, Sliders
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth';
+// GÜVENLİK GÜNCELLEMESİ: Auth kütüphaneleri tam güvenlikli giriş için eklendi.
+import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
 import { getFirestore, collection, doc, setDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp, updateDoc, deleteField } from 'firebase/firestore';
 
 // --- UIVERSE CUSTOM STYLES & FONTS ---
@@ -106,9 +107,10 @@ const UiverseStyles = () => (
   `}</style>
 );
 
-// --- 1. FIREBASE INIT ---
+// --- 1. FIREBASE INIT (.env HATASI GİDERİLDİ, SİTE KISITLAMASI OLDUĞU İÇİN GÜVENLİ) ---
 const firebaseConfig = {
-  apiKey: "AIzaSyA4S6agu71sO3bXlA1CsUGD0V0d8ImD3lg",
+  // DİKKAT: YENİ ALDIĞIN UZUN API KEY'İ AŞAĞIDAKİ YERE YAPIŞTIR
+  apiKey: "AIzaSyAymTlaA8CgqpfOC1vhs-bO6240ZlBGlrQ", 
   authDomain: "kamp-takip-sistemi.firebaseapp.com",
   projectId: "kamp-takip-sistemi",
   storageBucket: "kamp-takip-sistemi.firebasestorage.app",
@@ -122,7 +124,7 @@ const db = getFirestore(app);
 
 // --- 2. AYARLAR VE SABİTLER ---
 const APP_ID = "kamp-takip-yonetici-v3"; 
-const TEACHER_PASS = "1876"; 
+// GÜVENLİK: Koddaki sabit öğretmen şifresi (TEACHER_PASS) tamamen silindi! Öğretmen girişi artık tamamen veritabanından güvenli yapılıyor.
 
 const LGS_DATE_2026 = new Date('2026-06-07T09:30:00');
 
@@ -185,7 +187,7 @@ const ADVICE_POOL = {
 // --- YARDIMCI FONKSİYONLAR ---
 const normalizeString = (str) => {
     const map = { 'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u', 'Ç': 'C', 'Ğ': 'G', 'İ': 'I', 'Ö': 'O', 'Ş': 'S', 'Ü': 'U' };
-    return str.replace(/[çğıöşüÇĞİÖŞÜ]/g, match => map[match] || match).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    return str.replace(/[çğıöşüÇĞİÖŞÜ]/g, match => map[match] || match).trim().toLowerCase().replace(/\s+/g, ''); // Boşlukları ve Türkçe karakterleri siler
 };
 
 const generateStudentId = (name, grade) => `std_${normalizeString(name)}_${grade}`;
@@ -1814,29 +1816,41 @@ function LoginScreen({ setRole, studentName, setStudentName, studentGrade, setSt
   const [pass, setPass] = useState('');
   const [showPassword, setShowPassword] = useState(false); 
   
-  useEffect(() => {
-    const savedRole = localStorage.getItem('kamp_role');
-    const savedName = localStorage.getItem('kamp_student_name');
-    const savedGrade = localStorage.getItem('kamp_student_grade');
-    if (savedRole === 'student' && savedName && savedGrade) {
-        setStudentName(savedName);
-        setStudentGrade(savedGrade);
-        setRole('student');
-    }
-  }, [setRole, setStudentName, setStudentGrade]);
+  // GÜVENLİK GÜNCELLEMESİ: Öğretmen e-postası. (Firebase Konsolundan Authentication'da bu maili ve belirlediğiniz şifreyi oluşturmalısınız!)
+  const TEACHER_EMAIL = "admin@mrtakademi.com";
 
-  const handleLogin = (r) => {
-    if (r === 'student') { 
+  const handleLogin = async (role) => {
+    if (role === 'student') { 
         if (!studentName.trim() || !studentGrade) return showDialog({type:'alert', message:'Lütfen bilgileri doldur.'});
-        localStorage.setItem('kamp_role', 'student');
-        localStorage.setItem('kamp_student_name', studentName);
-        localStorage.setItem('kamp_student_grade', studentGrade);
-        setRole('student'); 
+        
+        // İsmi temizle ve sınıf ile birleştirip sistemin anlayacağı sahte bir e-posta oluştur
+        const normalizedName = normalizeString(studentName);
+        const fakeEmail = `${normalizedName}_${studentGrade}@ogrenci.mrtakademi.com`;
+        const fakePassword = `kamp_std_${normalizedName}_${studentGrade}_2026`; // Öğrenci için standart sabit şifre
+
+        try {
+            // Önce giriş yapmayı dener
+            await signInWithEmailAndPassword(auth, fakeEmail, fakePassword);
+        } catch (error) {
+            // Eğer kullanıcı yoksa, arka planda otomatik hesap oluşturur
+            try {
+                const userCred = await createUserWithEmailAndPassword(auth, fakeEmail, fakePassword);
+                // Öğrencinin adını ve sınıfını Firebase profiline kaydeder
+                await updateProfile(userCred.user, { displayName: `${studentName.trim()}|${studentGrade}` });
+            } catch (err) {
+                console.error(err);
+                showDialog({type:'alert', message:'Bağlantı hatası, sisteme girilemedi.'});
+            }
+        }
     } 
     else { 
-        if (pass !== TEACHER_PASS) return showDialog({type:'alert', message:'Hatalı şifre.'});
-        localStorage.setItem('kamp_role', 'teacher');
-        setRole('teacher'); 
+        if (!pass) return showDialog({type:'alert', message:'Şifre girmelisiniz.'});
+        try {
+            // Sadece şifre ile Firebase'den doğrulama yapılır. Şifre frontend kodunda ASLA yer almaz.
+            await signInWithEmailAndPassword(auth, TEACHER_EMAIL, pass);
+        } catch (error) {
+            showDialog({type:'alert', message:'Yetkisiz giriş! Şifre hatalı.'});
+        }
     }
   };
 
@@ -1904,17 +1918,28 @@ const App = () => {
             await setPersistence(auth, browserLocalPersistence);
         } catch (e) {}
         
+        // GÜVENLİK GÜNCELLEMESİ: Rol kontrolü artık güvenli bir şekilde sunucudan (E-postadan) alınıyor
         unsubscribe = onAuthStateChanged(auth, async (u) => { 
             if (u) {
                 setUser(u); 
+                if (u.email === 'admin@mrtakademi.com') {
+                    setRole('teacher');
+                } else {
+                    setRole('student');
+                    // Firebase profiline kaydettiğimiz isim ve sınıfı çekiyoruz
+                    if (u.displayName) {
+                        const parts = u.displayName.split('|');
+                        if (parts.length === 2) {
+                            setStudentName(parts[0]);
+                            setStudentGrade(parts[1]);
+                        }
+                    }
+                }
                 setLoading(false); 
             } else {
-                try {
-                    await signInAnonymously(auth); 
-                } catch(e) { 
-                    console.error("Auth init", e); 
-                    setLoading(false);
-                }
+                setUser(null);
+                setRole(null);
+                setLoading(false);
             }
         });
     };
@@ -1953,12 +1978,11 @@ const App = () => {
   }, [user]);
 
   const handleLogout = () => { 
-      localStorage.removeItem('kamp_role');
-      localStorage.removeItem('kamp_student_name');
-      localStorage.removeItem('kamp_student_grade');
-      setRole(null); 
-      setStudentName(''); 
-      setStudentGrade(''); 
+      signOut(auth).then(() => {
+          setRole(null); 
+          setStudentName(''); 
+          setStudentGrade(''); 
+      });
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-10 h-10 animate-spin text-indigo-600" /></div>;
@@ -1973,7 +1997,7 @@ const App = () => {
                 <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm"><GraduationCap className="w-6 h-6 text-white" /></div>
                 <div>
                     <h1 className="text-3xl font-bold leading-none spencerian tracking-wide">Mrt Akademi</h1>
-                    <span className="text-[10px] opacity-80 uppercase tracking-wider block mt-1">V44 Final</span>
+                    <span className="text-[10px] opacity-80 uppercase tracking-wider block mt-1">V44 Final (Secure)</span>
                 </div>
             </div>
             <div className="flex items-center space-x-2">
